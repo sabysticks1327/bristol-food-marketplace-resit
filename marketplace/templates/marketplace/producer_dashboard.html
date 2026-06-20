@@ -2,39 +2,23 @@
 
 {% block content %}
   <section class="panel">
-    <h1>Producer Dashboard</h1>
-    <p><strong>{{ producer.business_name }}</strong> · {{ producer.contact_name }} · {{ producer.postcode }}</p>
-    <div class="actions">
-      <a class="button" href="{% url 'product_create' %}">Add New Product</a>
-      <a class="button secondary" href="{% url 'producer_orders' %}">View Incoming Orders</a>
-    </div>
+    <h1>Producer Profile</h1>
+    <p>Your producer account is ready for marketplace access.</p>
+    <dl>
+      <dt>Business name</dt>
+      <dd>{{ producer.business_name }}</dd>
+      <dt>Contact name</dt>
+      <dd>{{ producer.contact_name }}</dd>
+      <dt>Email</dt>
+      <dd>{{ producer.user.email }}</dd>
+      <dt>Phone</dt>
+      <dd>{{ producer.phone }}</dd>
+      <dt>Business address</dt>
+      <dd>{{ producer.business_address }}</dd>
+      <dt>Postcode</dt>
+      <dd>{{ producer.postcode }}</dd>
+      <dt>Role</dt>
+      <dd>{{ producer.role }}</dd>
+    </dl>
   </section>
-
-  <h2>Your Products</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Category</th>
-        <th>Price</th>
-        <th>Stock</th>
-        <th>Availability</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for product in products %}
-        <tr>
-          <td>{{ product.name }}</td>
-          <td>{{ product.category.name }}</td>
-          <td>£{{ product.price }} / {{ product.unit }}</td>
-          <td>{{ product.stock_quantity }}</td>
-          <td>{{ product.availability_label }}</td>
-          <td><a href="{% url 'product_edit' product.pk %}">Edit</a></td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="6">No products listed yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
 {% endblock %}

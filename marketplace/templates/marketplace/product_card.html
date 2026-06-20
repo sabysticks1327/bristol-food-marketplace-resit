@@ -1,7 +1,0 @@
-<article class="card">
-  <h3><a href="{{ product.get_absolute_url }}">{{ product.name }}</a></h3>
-  <p>{{ product.description|truncatewords:18 }}</p>
-  <p><strong>£{{ product.price }}</strong> per {{ product.unit }}</p>
-  <p>{{ product.producer.business_name }} · {{ product.category.name }}</p>
-  <p><span class="badge">{{ product.availability_label }}</span></p>
-</article>

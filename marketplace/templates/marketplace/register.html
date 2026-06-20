@@ -2,7 +2,7 @@
 
 {% block content %}
   <section class="panel">
-    <h1>{{ account_type }} Registration</h1>
+    <h1>Producer Registration</h1>
     <form method="post" novalidate>
       {% csrf_token %}
       {{ form.non_field_errors }}
@@ -13,7 +13,7 @@
         {{ field.errors }}
       {% endfor %}
       <div class="actions">
-        <button type="submit">Create {{ account_type|lower }} account</button>
+        <button type="submit">Create producer account</button>
       </div>
     </form>
   </section>
