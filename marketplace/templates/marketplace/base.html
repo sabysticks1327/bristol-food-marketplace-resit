@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Bristol Food Marketplace{% endblock %}</title>
+  <style>
+    :root {
+      --ink: #1f2933;
+      --muted: #52606d;
+      --line: #d9e2ec;
+      --accent: #24745a;
+      --accent-dark: #14513f;
+      --danger: #8a241d;
+      --surface: #ffffff;
+      --page: #f7f9fb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+    }
+
+    nav,
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 0;
+    }
+
+    nav a,
+    button.link {
+      color: var(--accent-dark);
+      font-weight: 700;
+      text-decoration: none;
+      margin-left: 12px;
+    }
+
+    nav a:first-child {
+      margin-left: 0;
+    }
+
+    button.link {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    main {
+      padding: 28px 0 48px;
+    }
+
+    .panel,
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(31, 41, 51, 0.06);
+    }
+
+    .panel {
+      padding: 24px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      padding: 16px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .button,
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 9px 14px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .button.secondary {
+      background: #fff;
+      color: var(--accent-dark);
+    }
+
+    label {
+      display: block;
+      margin: 12px 0 6px;
+      font-weight: 700;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px;
+      border: 1px solid #bcccdc;
+      border-radius: 6px;
+      font: inherit;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    th,
+    td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .muted,
+    .helptext {
+      color: var(--muted);
+    }
+
+    .messages {
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      border-radius: 6px;
+      background: #edf8f3;
+      color: var(--accent-dark);
+    }
+
+    .errorlist {
+      color: var(--danger);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #edf8f3;
+      color: var(--accent-dark);
+      font-size: 0.85rem;
+      font-weight: 800;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav aria-label="Main navigation">
+      <a href="{% url 'marketplace_home' %}">Bristol Food Marketplace</a>
+      <div>
+        <a href="{% url 'product_list' %}">Marketplace</a>
+        {% if user.is_authenticated %}
+          {% if user.customer_profile %}
+            <a href="{% url 'cart_detail' %}">Cart</a>
+            <a href="{% url 'customer_account' %}">Account</a>
+          {% endif %}
+          {% if user.producer_profile %}
+            <a href="{% url 'producer_dashboard' %}">Producer</a>
+            <a href="{% url 'producer_orders' %}">Orders</a>
+          {% endif %}
+          <form method="post" action="{% url 'logout' %}" style="display:inline;">
+            {% csrf_token %}
+            <button class="link" type="submit">Log out</button>
+          </form>
+        {% else %}
+          <a href="{% url 'producer_register' %}">Producer register</a>
+          <a href="{% url 'customer_register' %}">Customer register</a>
+          <a href="{% url 'login' %}">Log in</a>
+        {% endif %}
+      </div>
+    </nav>
+  </header>
+  <main>
+    {% if messages %}
+      <div class="messages" role="status">
+        {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,7 +1,8 @@
+.git
 __pycache__/
-*.py[cod]
+*.pyc
 db.sqlite3
-.env
+.pytest_cache/
 .venv/
 staticfiles/
 .DS_Store

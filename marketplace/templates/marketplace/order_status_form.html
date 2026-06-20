@@ -1,0 +1,20 @@
+{% extends "marketplace/base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <h1>Update Order Status</h1>
+    <p>Current status: {{ order.get_status_display }}</p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% for field in form %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {{ field.errors }}
+      {% endfor %}
+      <div class="actions">
+        <button type="submit">Save Status</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "marketplace/base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <h1>{% if product %}Edit Product{% else %}Add New Product{% endif %}</h1>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      {% for field in form %}
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<p class="helptext">{{ field.help_text }}</p>{% endif %}
+        {{ field.errors }}
+      {% endfor %}
+      <div class="actions">
+        <button type="submit">Save product</button>
+        <a class="button secondary" href="{% url 'producer_dashboard' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

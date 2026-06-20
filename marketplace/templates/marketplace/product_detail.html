@@ -1,0 +1,32 @@
+{% extends "marketplace/base.html" %}
+
+{% block content %}
+  <article class="panel">
+    <h1>{{ product.name }}</h1>
+    <p><span class="badge">{{ product.availability_label }}</span></p>
+    <p>{{ product.description }}</p>
+    <p><strong>Price:</strong> £{{ product.price }} per {{ product.unit }}</p>
+    <p><strong>Producer:</strong> {{ product.producer.business_name }}</p>
+    <p><strong>Category:</strong> {{ product.category.name }}</p>
+    <p><strong>Stock:</strong> {{ product.stock_quantity }} {{ product.unit }}</p>
+    <p><strong>Allergen information:</strong> {{ product.allergen_info|default:"No common allergens" }}</p>
+    {% if product.harvest_date %}<p><strong>Harvest date:</strong> {{ product.harvest_date }}</p>{% endif %}
+
+    {% if user.is_authenticated and user.customer_profile %}
+      <form method="post" action="{% url 'cart_add' product.pk %}">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% for field in form %}
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {{ field.errors }}
+        {% endfor %}
+        <div class="actions">
+          <button type="submit">Add to Cart</button>
+        </div>
+      </form>
+    {% else %}
+      <p><a href="{% url 'login' %}">Log in as a customer</a> to add this product to your cart.</p>
+    {% endif %}
+  </article>
+{% endblock %}

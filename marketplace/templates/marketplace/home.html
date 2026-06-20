@@ -1,0 +1,31 @@
+{% extends "marketplace/base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <h1>Bristol Regional Food Network Marketplace</h1>
+    <p class="muted">Django marketplace implementation for resit test cases TC-001 to TC-010.</p>
+    <div class="actions">
+      <a class="button" href="{% url 'producer_register' %}">Register producer</a>
+      <a class="button secondary" href="{% url 'customer_register' %}">Register customer</a>
+      <a class="button secondary" href="{% url 'product_list' %}">Browse marketplace</a>
+    </div>
+  </section>
+
+  <h2>Categories</h2>
+  <div class="grid">
+    {% for category in categories %}
+      <a class="card" href="{% url 'product_list' %}?category={{ category.slug }}">{{ category.name }}</a>
+    {% empty %}
+      <p>No categories yet. Run the seed command to add demo data.</p>
+    {% endfor %}
+  </div>
+
+  <h2>Available Products</h2>
+  <div class="grid">
+    {% for product in products %}
+      {% include "marketplace/product_card.html" %}
+    {% empty %}
+      <p>No products are available yet.</p>
+    {% endfor %}
+  </div>
+{% endblock %}
