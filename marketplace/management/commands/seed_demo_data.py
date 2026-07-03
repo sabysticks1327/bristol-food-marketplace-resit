@@ -1,7 +1,7 @@
 from django.contrib.auth.models import Group, User
 from django.core.management.base import BaseCommand
 
-from marketplace.models import ProducerProfile
+from marketplace.models import CustomerProfile, ProducerProfile
 
 
 class Command(BaseCommand):
@@ -35,4 +35,30 @@ class Command(BaseCommand):
             },
         )
 
-        self.stdout.write(self.style.SUCCESS("TC-001 demo producer seeded."))
+        customer_group, _ = Group.objects.get_or_create(name="Customer")
+        customer_user, _ = User.objects.get_or_create(
+            username="robert.johnson@email.com",
+            defaults={
+                "email": "robert.johnson@email.com",
+                "first_name": "Robert Johnson",
+            },
+        )
+        customer_user.email = "robert.johnson@email.com"
+        customer_user.first_name = "Robert Johnson"
+        customer_user.set_password("StrongCustomerPass!2026")
+        customer_user.save()
+        customer_user.groups.add(customer_group)
+
+        CustomerProfile.objects.update_or_create(
+            user=customer_user,
+            defaults={
+                "full_name": "Robert Johnson",
+                "phone": "07700 900123",
+                "delivery_address": "45 Park Street, Bristol",
+                "postcode": "BS1 5JG",
+                "role": CustomerProfile.ROLE_NAME,
+                "accepted_terms": True,
+            },
+        )
+
+        self.stdout.write(self.style.SUCCESS("TC-001 and TC-002 demo users seeded."))

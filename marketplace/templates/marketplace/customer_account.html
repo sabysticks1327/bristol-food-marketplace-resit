@@ -1,0 +1,24 @@
+{% extends "marketplace/base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <h1>Customer Account</h1>
+    <p>Your customer account is ready to browse and purchase local products.</p>
+    <dl>
+      <dt>Full name</dt>
+      <dd>{{ customer.full_name }}</dd>
+      <dt>Email</dt>
+      <dd>{{ customer.user.email }}</dd>
+      <dt>Phone</dt>
+      <dd>{{ customer.phone }}</dd>
+      <dt>Delivery address</dt>
+      <dd>{{ customer.delivery_address }}</dd>
+      <dt>Postcode</dt>
+      <dd>{{ customer.postcode }}</dd>
+      <dt>Role</dt>
+      <dd>{{ customer.role }}</dd>
+      <dt>Terms accepted</dt>
+      <dd>{{ customer.accepted_terms|yesno:"Yes,No" }}</dd>
+    </dl>
+  </section>
+{% endblock %}

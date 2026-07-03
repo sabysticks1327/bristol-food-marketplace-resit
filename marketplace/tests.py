@@ -2,7 +2,7 @@ from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import ProducerProfile
+from .models import CustomerProfile, ProducerProfile
 
 
 class ProducerRegistrationTests(TestCase):
@@ -83,3 +83,78 @@ class ProducerRegistrationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "This password is too short")
         self.assertFalse(User.objects.filter(email="weak-password@example.com").exists())
+
+
+class CustomerRegistrationTests(TestCase):
+    valid_data = {
+        "full_name": "Robert Johnson",
+        "email": "robert.johnson@email.com",
+        "phone": "07700 900123",
+        "delivery_address": "45 Park Street, Bristol",
+        "postcode": "BS1 5JG",
+        "accept_terms": "on",
+        "password1": "StrongCustomerPass!2026",
+        "password2": "StrongCustomerPass!2026",
+    }
+
+    def test_tc002_registration_page_loads(self):
+        response = self.client.get(reverse("customer_register"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Customer Registration")
+        self.assertContains(response, "full_name")
+        self.assertContains(response, "delivery_address")
+
+    def test_tc002_valid_registration_creates_customer_profile_role_and_hashed_password(self):
+        response = self.client.post(reverse("customer_register"), self.valid_data)
+
+        self.assertRedirects(response, reverse("customer_account"))
+
+        user = User.objects.get(email="robert.johnson@email.com")
+        self.assertEqual(user.username, "robert.johnson@email.com")
+        self.assertNotEqual(user.password, self.valid_data["password1"])
+        self.assertTrue(user.check_password(self.valid_data["password1"]))
+
+        profile = CustomerProfile.objects.get(user=user)
+        self.assertEqual(profile.full_name, "Robert Johnson")
+        self.assertEqual(profile.phone, "07700 900123")
+        self.assertEqual(profile.delivery_address, "45 Park Street, Bristol")
+        self.assertEqual(profile.postcode, "BS1 5JG")
+        self.assertEqual(profile.role, CustomerProfile.ROLE_NAME)
+        self.assertTrue(profile.accepted_terms)
+        self.assertTrue(Group.objects.filter(name="Customer", user=user).exists())
+
+    def test_tc002_registered_customer_can_login_and_view_account(self):
+        self.client.post(reverse("customer_register"), self.valid_data)
+        self.client.logout()
+        self.client.post(
+            reverse("login"),
+            {
+                "username": self.valid_data["email"],
+                "password": self.valid_data["password1"],
+            },
+        )
+
+        response = self.client.get(reverse("customer_account"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Robert Johnson")
+        self.assertContains(response, "45 Park Street, Bristol")
+        self.assertContains(response, "customer")
+
+    def test_tc002_terms_must_be_accepted(self):
+        data = {**self.valid_data}
+        data.pop("accept_terms")
+
+        response = self.client.post(reverse("customer_register"), data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "This field is required")
+        self.assertFalse(User.objects.filter(email=self.valid_data["email"]).exists())
+
+    def test_tc002_customer_cannot_access_producer_profile_page(self):
+        self.client.post(reverse("customer_register"), self.valid_data)
+
+        response = self.client.get(reverse("producer_dashboard"))
+
+        self.assertEqual(response.status_code, 403)

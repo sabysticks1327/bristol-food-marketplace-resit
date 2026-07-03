@@ -3,9 +3,10 @@
 {% block content %}
   <section class="panel">
     <h1>Bristol Regional Food Network Marketplace</h1>
-    <p class="muted">TC-001 implementation: producers can create accounts and access their producer profile.</p>
+    <p class="muted">TC-001 and TC-002 implementation: producers and customers can create accounts and access their saved profiles.</p>
     <div class="actions">
       <a class="button" href="{% url 'producer_register' %}">Register producer</a>
+      <a class="button secondary" href="{% url 'customer_register' %}">Register customer</a>
       <a class="button secondary" href="{% url 'login' %}">Log in</a>
     </div>
   </section>

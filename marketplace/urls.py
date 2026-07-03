@@ -7,6 +7,8 @@ from . import views
 urlpatterns = [
     path("", views.home, name="marketplace_home"),
     path("accounts/producer/register/", views.producer_register, name="producer_register"),
+    path("accounts/customer/register/", views.customer_register, name="customer_register"),
+    path("accounts/customer/", views.customer_account, name="customer_account"),
     path(
         "login/",
         auth_views.LoginView.as_view(

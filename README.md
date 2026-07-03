@@ -1,12 +1,13 @@
 # Bristol Regional Food Network Marketplace - Resit Project
 
-This Django project currently implements **TC-001 only**.
+This Django project currently implements **TC-001 and TC-002 only**.
 
 ## Implemented Test Cases
 
 | Test Case | Feature | Status |
 |---|---|---|
 | TC-001 | Producer Registration | Implemented |
+| TC-002 | Customer Registration | Implemented |
 
 ## TC-001 Coverage
 
@@ -19,6 +20,18 @@ This Django project currently implements **TC-001 only**.
 - Saved producer profile.
 - Login with registered credentials.
 - Authenticated producer profile page.
+
+## TC-002 Coverage
+
+- Customer registration page.
+- Full name, email, phone, delivery address, postcode, terms, and password fields.
+- Django password validation.
+- User account creation through Django authentication.
+- Secure password hashing.
+- Customer role assignment through a `Customer` group and `CustomerProfile.role`.
+- Saved customer profile and delivery address.
+- Login with registered credentials.
+- Authenticated customer account page.
 
 ## Local Setup
 
@@ -34,11 +47,20 @@ Open:
 http://127.0.0.1:8000/
 ```
 
-## Demo Producer Account
+## Demo Accounts
+
+Producer:
 
 ```text
 Email: jane.smith@bristolvalleyfarm.com
 Password: StrongProducerPass!2026
+```
+
+Customer:
+
+```text
+Email: robert.johnson@email.com
+Password: StrongCustomerPass!2026
 ```
 
 ## Docker
@@ -58,4 +80,4 @@ The Docker setup runs:
 python manage.py test
 ```
 
-The tests verify TC-001 registration, producer role/profile creation, password hashing, duplicate email rejection, weak password rejection, login, and producer profile access.
+The tests verify TC-001 and TC-002 registration, role/profile creation, password hashing, duplicate/invalid registration handling, login, and profile/account access.

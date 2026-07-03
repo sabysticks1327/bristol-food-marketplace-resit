@@ -187,13 +187,19 @@
       <a href="{% url 'marketplace_home' %}">Bristol Food Marketplace</a>
       <div>
         {% if user.is_authenticated %}
-          <a href="{% url 'producer_dashboard' %}">Producer profile</a>
+          {% if user.producer_profile %}
+            <a href="{% url 'producer_dashboard' %}">Producer profile</a>
+          {% endif %}
+          {% if user.customer_profile %}
+            <a href="{% url 'customer_account' %}">Customer account</a>
+          {% endif %}
           <form method="post" action="{% url 'logout' %}" style="display:inline;">
             {% csrf_token %}
             <button class="link" type="submit">Log out</button>
           </form>
         {% else %}
           <a href="{% url 'producer_register' %}">Producer register</a>
+          <a href="{% url 'customer_register' %}">Customer register</a>
           <a href="{% url 'login' %}">Log in</a>
         {% endif %}
       </div>
