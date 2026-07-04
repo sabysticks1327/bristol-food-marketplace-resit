@@ -2,7 +2,10 @@
 
 {% block content %}
   <section class="panel">
-    <h1>Producer Profile</h1>
+    <div class="toolbar">
+      <h1>Producer Profile</h1>
+      <a class="button" href="{% url 'product_create' %}">Add product</a>
+    </div>
     <p>Your producer account is ready for marketplace access.</p>
     <dl>
       <dt>Business name</dt>
@@ -20,5 +23,43 @@
       <dt>Role</dt>
       <dd>{{ producer.role }}</dd>
     </dl>
+  </section>
+
+  <section style="margin-top: 24px;">
+    <div class="toolbar">
+      <h2>Your Product Listings</h2>
+      <a href="{% url 'product_list' %}">View public marketplace</a>
+    </div>
+
+    {% if products %}
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Category</th>
+            <th>Price</th>
+            <th>Availability</th>
+            <th>Stock</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in products %}
+            <tr>
+              <td>{{ product.name }}</td>
+              <td>{{ product.category.name }}</td>
+              <td>&pound;{{ product.price }} / {{ product.unit }}</td>
+              <td>{{ product.availability_label }}</td>
+              <td>{{ product.stock_quantity }}</td>
+              <td><a href="{% url 'product_edit' product.pk %}">Edit</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="panel">
+        <p class="muted">No product listings yet.</p>
+      </div>
+    {% endif %}
   </section>
 {% endblock %}

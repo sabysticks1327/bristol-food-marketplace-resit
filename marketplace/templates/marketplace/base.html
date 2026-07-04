@@ -89,8 +89,34 @@
       gap: 16px;
     }
 
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
     .card {
       padding: 16px;
+    }
+
+    .product-card {
+      display: flex;
+      min-height: 260px;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .product-card h3 {
+      margin-top: 0;
+    }
+
+    .price {
+      color: var(--accent-dark);
+      font-size: 1.15rem;
+      font-weight: 800;
     }
 
     .actions {
@@ -130,6 +156,7 @@
 
     input,
     textarea,
+    input[type="search"],
     select {
       width: 100%;
       min-height: 42px;
@@ -137,6 +164,48 @@
       border: 1px solid #bcccdc;
       border-radius: 6px;
       font: inherit;
+    }
+
+    .search-form {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 10px;
+      width: min(620px, 100%);
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 18px;
+    }
+
+    .filter-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--accent-dark);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .filter-link.active {
+      border-color: var(--accent);
+      background: #edf8f3;
+    }
+
+    .detail-list dt {
+      margin-top: 12px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .detail-list dd {
+      margin: 2px 0 0;
     }
 
     table {
@@ -186,9 +255,11 @@
     <nav aria-label="Main navigation">
       <a href="{% url 'marketplace_home' %}">Bristol Food Marketplace</a>
       <div>
+        <a href="{% url 'product_list' %}">Marketplace</a>
         {% if user.is_authenticated %}
           {% if user.producer_profile %}
             <a href="{% url 'producer_dashboard' %}">Producer profile</a>
+            <a href="{% url 'product_create' %}">Add product</a>
           {% endif %}
           {% if user.customer_profile %}
             <a href="{% url 'customer_account' %}">Customer account</a>

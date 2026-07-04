@@ -3,7 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import Group, User
 from django.db import transaction
 
-from .models import CustomerProfile, ProducerProfile
+from .models import CustomerProfile, ProducerProfile, Product
 
 
 class EmailAuthenticationForm(AuthenticationForm):
@@ -101,3 +101,22 @@ class CustomerRegistrationForm(BaseAccountCreationForm):
                 accepted_terms=self.cleaned_data["accept_terms"],
             )
         return user
+
+
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = [
+            "name",
+            "category",
+            "description",
+            "price",
+            "unit",
+            "availability",
+            "stock_quantity",
+            "allergen_info",
+            "harvest_date",
+        ]
+        widgets = {
+            "harvest_date": forms.DateInput(attrs={"type": "date"}),
+        }

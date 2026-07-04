@@ -1,0 +1,31 @@
+{% extends "marketplace/base.html" %}
+
+{% block title %}{{ product.name }} | Bristol Food Marketplace{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h1>{{ product.name }}</h1>
+        <p class="muted">{{ product.producer.business_name }} | {{ product.category.name }}</p>
+      </div>
+      <a href="{% url 'product_list' %}">Back to marketplace</a>
+    </div>
+
+    <p>{{ product.description }}</p>
+    <p class="price">&pound;{{ product.price }} / {{ product.unit }}</p>
+
+    <dl class="detail-list">
+      <dt>Availability</dt>
+      <dd><span class="badge">{{ product.availability_label }}</span></dd>
+      <dt>Stock quantity</dt>
+      <dd>{{ product.stock_quantity }} {{ product.unit }}</dd>
+      <dt>Allergen information</dt>
+      <dd>{{ product.allergen_info|default:"None provided" }}</dd>
+      <dt>Harvest date</dt>
+      <dd>{{ product.harvest_date|default:"Not provided" }}</dd>
+      <dt>Producer</dt>
+      <dd>{{ product.producer.business_name }}</dd>
+    </dl>
+  </section>
+{% endblock %}

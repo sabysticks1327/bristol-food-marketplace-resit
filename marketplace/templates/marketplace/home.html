@@ -1,13 +1,48 @@
 {% extends "marketplace/base.html" %}
 
+{% block title %}Bristol Food Marketplace{% endblock %}
+
 {% block content %}
   <section class="panel">
     <h1>Bristol Regional Food Network Marketplace</h1>
-    <p class="muted">TC-001 and TC-002 implementation: producers and customers can create accounts and access their saved profiles.</p>
+    <p class="muted">TC-001 to TC-005 implementation: account registration, producer product listings, customer browsing by category, and product search.</p>
     <div class="actions">
+      <a class="button" href="{% url 'product_list' %}">Browse marketplace</a>
       <a class="button" href="{% url 'producer_register' %}">Register producer</a>
       <a class="button secondary" href="{% url 'customer_register' %}">Register customer</a>
       <a class="button secondary" href="{% url 'login' %}">Log in</a>
     </div>
+  </section>
+
+  {% if categories %}
+    <section style="margin-top: 24px;">
+      <div class="toolbar">
+        <h2>Categories</h2>
+        <a href="{% url 'product_list' %}">View all products</a>
+      </div>
+      <div class="filters">
+        {% for category in categories %}
+          <a class="filter-link" href="{% url 'product_list' %}?category={{ category.slug }}">{{ category.name }}</a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  <section style="margin-top: 24px;">
+    <div class="toolbar">
+      <h2>Latest products</h2>
+      <a href="{% url 'product_list' %}">Open marketplace</a>
+    </div>
+    {% if products %}
+      <div class="grid">
+        {% for product in products %}
+          {% include "marketplace/product_card.html" %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="panel">
+        <p class="muted">No listed products are available yet.</p>
+      </div>
+    {% endif %}
   </section>
 {% endblock %}

@@ -19,4 +19,8 @@ urlpatterns = [
     ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("producer/dashboard/", views.producer_dashboard, name="producer_dashboard"),
+    path("producer/products/new/", views.product_create, name="product_create"),
+    path("producer/products/<int:pk>/edit/", views.product_edit, name="product_edit"),
+    path("marketplace/", views.product_list, name="product_list"),
+    path("marketplace/products/<int:pk>/", views.product_detail, name="product_detail"),
 ]

@@ -1,0 +1,49 @@
+{% extends "marketplace/base.html" %}
+
+{% block title %}Marketplace | Bristol Food Marketplace{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h1>Marketplace</h1>
+        {% if selected_category %}
+          <p class="muted">Showing {{ selected_category.name }} products.</p>
+        {% elif query %}
+          <p class="muted">Search results for "{{ query }}".</p>
+        {% else %}
+          <p class="muted">Fresh local food from Bristol producers.</p>
+        {% endif %}
+      </div>
+      <form class="search-form" method="get" action="{% url 'product_list' %}">
+        {% if selected_category %}
+          <input type="hidden" name="category" value="{{ selected_category.slug }}">
+        {% endif %}
+        <input type="search" name="q" value="{{ query }}" placeholder="Search products or producers" aria-label="Search products or producers">
+        <button type="submit">Search</button>
+      </form>
+    </div>
+
+    <div class="filters" aria-label="Product categories">
+      <a class="filter-link{% if not selected_category %} active{% endif %}" href="{% url 'product_list' %}{% if query %}?q={{ query|urlencode }}{% endif %}">All categories</a>
+      {% for category in categories %}
+        <a class="filter-link{% if selected_category == category %} active{% endif %}" href="{% url 'product_list' %}?category={{ category.slug }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}">{{ category.name }}</a>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section style="margin-top: 24px;">
+    {% if products %}
+      <div class="grid">
+        {% for product in products %}
+          {% include "marketplace/product_card.html" %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="panel">
+        <h2>No products found</h2>
+        <p class="muted">Try a different search term or category.</p>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "marketplace/base.html" %}
+
+{% block title %}{% if product %}Edit Product{% else %}Add Product{% endif %} | Bristol Food Marketplace{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="toolbar">
+      <h1>{% if product %}Edit Product{% else %}Add Product{% endif %}</h1>
+      <a href="{% url 'producer_dashboard' %}">Back to dashboard</a>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% for field in form %}
+        <div>
+          {{ field.label_tag }}
+          {{ field }}
+          {% if field.help_text %}<p class="helptext">{{ field.help_text }}</p>{% endif %}
+          {{ field.errors }}
+        </div>
+      {% endfor %}
+      <div class="actions">
+        <button type="submit">{% if product %}Save product{% else %}Create product{% endif %}</button>
+        <a class="button secondary" href="{% url 'producer_dashboard' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

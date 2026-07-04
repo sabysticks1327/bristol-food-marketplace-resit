@@ -1,0 +1,14 @@
+<article class="card product-card">
+  <div>
+    <h3><a href="{{ product.get_absolute_url }}">{{ product.name }}</a></h3>
+    <p class="muted">{{ product.producer.business_name }} | {{ product.category.name }}</p>
+    <p>{{ product.description|truncatewords:22 }}</p>
+  </div>
+  <div>
+    <p class="price">&pound;{{ product.price }} / {{ product.unit }}</p>
+    <p>
+      <span class="badge">{{ product.availability_label }}</span>
+      <span class="badge">{{ product.stock_quantity }} {{ product.unit }} left</span>
+    </p>
+  </div>
+</article>
