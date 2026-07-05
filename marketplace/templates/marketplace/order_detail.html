@@ -19,14 +19,24 @@
     <dl class="detail-list">
       <dt>Customer</dt>
       <dd>{{ order.customer.full_name }}</dd>
+      <dt>Customer phone</dt>
+      <dd>{{ order.customer.phone }}</dd>
+      <dt>Customer email</dt>
+      <dd>{{ order.customer.user.email }}</dd>
       <dt>Producer</dt>
       <dd>{{ order.producer.business_name }}</dd>
+      <dt>Order date</dt>
+      <dd>{{ order.created_at|date:"Y-m-d H:i" }}</dd>
       <dt>Delivery address</dt>
       <dd>{{ order.delivery_address }}</dd>
       <dt>Delivery postcode</dt>
       <dd>{{ order.delivery_postcode }}</dd>
       <dt>Delivery date</dt>
       <dd>{{ order.delivery_date }}</dd>
+      <dt>Lead time</dt>
+      <dd>{{ order.lead_time_days }} days from order date to delivery date</dd>
+      <dt>Special instructions</dt>
+      <dd>{{ order.special_instructions|default:"None" }}</dd>
       <dt>Payment</dt>
       <dd>{{ order.payment_record.get_status_display }} via {{ order.payment_record.provider }}</dd>
     </dl>
@@ -73,5 +83,36 @@
         <strong>{{ order.payment_record.transaction_reference }}</strong>
       </div>
     </div>
+
+    <h2>Status History</h2>
+    <div class="timeline">
+      {% for entry in order.status_history.all %}
+        <div class="timeline-item">
+          <strong>{{ entry.get_status_display }}</strong>
+          <p class="muted">
+            {{ entry.created_at|date:"Y-m-d H:i" }}
+            {% if entry.updated_by %}by {{ entry.updated_by.business_name }}{% else %}by system{% endif %}
+          </p>
+          {% if entry.note %}<p>{{ entry.note }}</p>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if status_form %}
+      <h2>Update Status</h2>
+      <form method="post" action="{% url 'order_status_update' order.order_number %}" novalidate>
+        {% csrf_token %}
+        {% for field in status_form %}
+          <div>
+            {{ field.label_tag }}
+            {{ field }}
+            {{ field.errors }}
+          </div>
+        {% endfor %}
+        <div class="actions">
+          <button type="submit">Update Status</button>
+        </div>
+      </form>
+    {% endif %}
   </section>
 {% endblock %}

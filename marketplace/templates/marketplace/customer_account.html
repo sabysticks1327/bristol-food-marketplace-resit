@@ -27,6 +27,27 @@
 
   <section style="margin-top: 24px;">
     <div class="toolbar">
+      <h2>Notifications</h2>
+    </div>
+    {% if notifications %}
+      <div class="timeline">
+        {% for notification in notifications %}
+          <div class="timeline-item">
+            <strong>{{ notification.message }}</strong>
+            <p class="muted">{{ notification.created_at|date:"Y-m-d H:i" }}</p>
+            <a href="{{ notification.order.get_absolute_url }}">View order</a>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="panel">
+        <p class="muted">No notifications yet.</p>
+      </div>
+    {% endif %}
+  </section>
+
+  <section style="margin-top: 24px;">
+    <div class="toolbar">
       <h2>Your Orders</h2>
       <a href="{% url 'product_list' %}">Browse products</a>
     </div>

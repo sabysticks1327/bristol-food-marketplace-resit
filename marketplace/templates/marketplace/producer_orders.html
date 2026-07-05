@@ -1,0 +1,61 @@
+{% extends "marketplace/base.html" %}
+
+{% block title %}Order Management | Bristol Food Marketplace{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h1>Order Management</h1>
+        <p class="muted">Incoming orders sorted by delivery date.</p>
+      </div>
+      <a href="{% url 'producer_dashboard' %}">Back to dashboard</a>
+    </div>
+
+    <div class="filters" aria-label="Order status filters">
+      <a class="filter-link{% if not status %} active{% endif %}" href="{% url 'producer_orders' %}">All statuses</a>
+      {% for value, label in status_choices %}
+        <a class="filter-link{% if status == value %} active{% endif %}" href="{% url 'producer_orders' %}?status={{ value }}">{{ label }}</a>
+      {% endfor %}
+    </div>
+
+    {% if orders %}
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Order date</th>
+            <th>Delivery date</th>
+            <th>Status</th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Lead time</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+            <tr>
+              <td>{{ order.order_number }}</td>
+              <td>{{ order.customer.full_name }}</td>
+              <td>{{ order.created_at|date:"Y-m-d" }}</td>
+              <td>{{ order.delivery_date }}</td>
+              <td>{{ order.get_status_display }}</td>
+              <td>
+                {% for item in order.items.all %}
+                  {{ item.quantity }} {{ item.unit }} {{ item.product_name }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+              </td>
+              <td>&pound;{{ order.subtotal }}</td>
+              <td>{{ order.lead_time_days }} days</td>
+              <td><a href="{{ order.get_absolute_url }}">View</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No orders match this filter.</p>
+    {% endif %}
+  </section>
+{% endblock %}

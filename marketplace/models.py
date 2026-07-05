@@ -7,6 +7,7 @@ from django.db import models
 from django.urls import reverse
 
 MONEY_QUANTIZER = Decimal("0.01")
+LOW_STOCK_THRESHOLD = Decimal("5.00")
 
 
 def quantize_money(value):
@@ -73,6 +74,22 @@ class Category(models.Model):
 
 
 class Product(models.Model):
+    UK_MAJOR_ALLERGENS = [
+        "Celery",
+        "Cereals containing gluten",
+        "Crustaceans",
+        "Eggs",
+        "Fish",
+        "Lupin",
+        "Milk",
+        "Molluscs",
+        "Mustard",
+        "Nuts",
+        "Peanuts",
+        "Sesame",
+        "Soya",
+        "Sulphur dioxide and sulphites",
+    ]
     AVAILABILITY_IN_SEASON = "in_season"
     AVAILABILITY_AVAILABLE = "available"
     AVAILABILITY_UNAVAILABLE = "unavailable"
@@ -99,8 +116,12 @@ class Product(models.Model):
         choices=AVAILABILITY_CHOICES,
         default=AVAILABILITY_IN_SEASON,
     )
-    stock_quantity = models.DecimalField(max_digits=9, decimal_places=2)
-    allergen_info = models.CharField(max_length=255, blank=True)
+    stock_quantity = models.DecimalField(
+        max_digits=9,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    allergen_info = models.CharField(max_length=255, default="No common allergens")
     harvest_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -124,6 +145,16 @@ class Product(models.Model):
     @property
     def availability_label(self):
         return dict(self.AVAILABILITY_CHOICES).get(self.availability, self.availability)
+
+    @property
+    def has_common_allergens(self):
+        return self.allergen_info.strip().lower() != "no common allergens"
+
+    @property
+    def allergen_badge_text(self):
+        if self.has_common_allergens:
+            return f"Contains: {self.allergen_info}"
+        return "No common allergens"
 
 
 class Cart(models.Model):
@@ -202,10 +233,20 @@ def generate_order_number():
 class Order(models.Model):
     STATUS_PENDING = "pending"
     STATUS_CONFIRMED = "confirmed"
+    STATUS_READY = "ready"
+    STATUS_DELIVERED = "delivered"
     STATUS_CHOICES = [
         (STATUS_PENDING, "Pending"),
         (STATUS_CONFIRMED, "Confirmed"),
+        (STATUS_READY, "Ready for Delivery"),
+        (STATUS_DELIVERED, "Delivered"),
     ]
+    STATUS_PROGRESSION = {
+        STATUS_PENDING: STATUS_CONFIRMED,
+        STATUS_CONFIRMED: STATUS_READY,
+        STATUS_READY: STATUS_DELIVERED,
+        STATUS_DELIVERED: None,
+    }
 
     customer = models.ForeignKey(
         CustomerProfile,
@@ -226,6 +267,7 @@ class Order(models.Model):
     delivery_address = models.TextField()
     delivery_postcode = models.CharField(max_length=12)
     delivery_date = models.DateField()
+    special_instructions = models.TextField(blank=True)
     status = models.CharField(
         max_length=30,
         choices=STATUS_CHOICES,
@@ -244,6 +286,19 @@ class Order(models.Model):
 
     def get_absolute_url(self):
         return reverse("order_detail", kwargs={"order_number": self.order_number})
+
+    @property
+    def allowed_next_status(self):
+        return self.STATUS_PROGRESSION[self.status]
+
+    @property
+    def lead_time_days(self):
+        if not self.created_at:
+            return None
+        return (self.delivery_date - self.created_at.date()).days
+
+    def can_transition_to(self, next_status):
+        return next_status == self.allowed_next_status
 
 
 class OrderItem(models.Model):
@@ -306,3 +361,96 @@ class LoginAttempt(models.Model):
     def __str__(self):
         outcome = "successful" if self.was_successful else "failed"
         return f"{outcome} login for {self.email}"
+
+
+class OrderStatusHistory(models.Model):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="status_history",
+    )
+    status = models.CharField(max_length=30, choices=Order.STATUS_CHOICES)
+    note = models.TextField(blank=True)
+    updated_by = models.ForeignKey(
+        ProducerProfile,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="status_updates",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name_plural = "order status history"
+
+    def __str__(self):
+        return f"{self.order.order_number} -> {self.get_status_display()}"
+
+
+class CustomerNotification(models.Model):
+    customer = models.ForeignKey(
+        CustomerProfile,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    message = models.CharField(max_length=255)
+    read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.message
+
+
+class InventoryUpdate(models.Model):
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="inventory_updates",
+    )
+    producer = models.ForeignKey(
+        ProducerProfile,
+        on_delete=models.PROTECT,
+        related_name="inventory_updates",
+    )
+    previous_stock = models.DecimalField(max_digits=9, decimal_places=2)
+    new_stock = models.DecimalField(max_digits=9, decimal_places=2)
+    previous_availability = models.CharField(max_length=30, choices=Product.AVAILABILITY_CHOICES)
+    new_availability = models.CharField(max_length=30, choices=Product.AVAILABILITY_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.product.name} stock {self.previous_stock} -> {self.new_stock}"
+
+
+class InventoryAlert(models.Model):
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="inventory_alerts",
+    )
+    producer = models.ForeignKey(
+        ProducerProfile,
+        on_delete=models.PROTECT,
+        related_name="inventory_alerts",
+    )
+    message = models.CharField(max_length=255)
+    resolved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.message

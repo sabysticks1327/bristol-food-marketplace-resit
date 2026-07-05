@@ -14,6 +14,9 @@
 
     <p>{{ product.description }}</p>
     <p class="price">&pound;{{ product.price }} / {{ product.unit }}</p>
+    <p class="{% if product.has_common_allergens %}warning{% else %}muted{% endif %}">
+      {{ product.allergen_badge_text }}
+    </p>
 
     <dl class="detail-list">
       <dt>Availability</dt>
@@ -21,7 +24,7 @@
       <dt>Stock quantity</dt>
       <dd>{{ product.stock_quantity }} {{ product.unit }}</dd>
       <dt>Allergen information</dt>
-      <dd>{{ product.allergen_info|default:"None provided" }}</dd>
+      <dd>{{ product.allergen_badge_text }}</dd>
       <dt>Harvest date</dt>
       <dd>{{ product.harvest_date|default:"Not provided" }}</dd>
       <dt>Producer</dt>
@@ -34,6 +37,9 @@
           {% csrf_token %}
           {{ add_to_cart_form.quantity.label_tag }}
           {{ add_to_cart_form.quantity }}
+          {{ add_to_cart_form.allergen_acknowledged.label_tag }}
+          {{ add_to_cart_form.allergen_acknowledged }}
+          {{ add_to_cart_form.allergen_acknowledged.errors }}
           <button type="submit">Add to Cart</button>
         </form>
       {% elif not user.is_authenticated %}

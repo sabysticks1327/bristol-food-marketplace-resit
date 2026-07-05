@@ -266,6 +266,27 @@
       font-size: 0.85rem;
       font-weight: 800;
     }
+
+    .warning {
+      padding: 12px 14px;
+      border: 1px solid #e0a82e;
+      border-radius: 6px;
+      background: #fff8e6;
+      color: #5f4300;
+      font-weight: 800;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .timeline-item {
+      padding: 12px;
+      border-left: 4px solid var(--accent);
+      background: #fff;
+    }
   </style>
 </head>
 <body>
@@ -277,6 +298,7 @@
         {% if user.is_authenticated %}
           {% if user.producer_profile %}
             <a href="{% url 'producer_dashboard' %}">Producer profile</a>
+            <a href="{% url 'producer_orders' %}">Orders</a>
             <a href="{% url 'product_create' %}">Add product</a>
           {% endif %}
           {% if user.customer_profile %}

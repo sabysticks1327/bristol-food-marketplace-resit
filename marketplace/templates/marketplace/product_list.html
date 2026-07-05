@@ -25,10 +25,16 @@
     </div>
 
     <div class="filters" aria-label="Product categories">
-      <a class="filter-link{% if not selected_category %} active{% endif %}" href="{% url 'product_list' %}{% if query %}?q={{ query|urlencode }}{% endif %}">All categories</a>
+      <a class="filter-link{% if not selected_category %} active{% endif %}" href="{% url 'product_list' %}{% if query or allergen_filter %}?{% if query %}q={{ query|urlencode }}{% endif %}{% if query and allergen_filter %}&amp;{% endif %}{% if allergen_filter %}allergen={{ allergen_filter }}{% endif %}{% endif %}">All categories</a>
       {% for category in categories %}
-        <a class="filter-link{% if selected_category == category %} active{% endif %}" href="{% url 'product_list' %}?category={{ category.slug }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}">{{ category.name }}</a>
+        <a class="filter-link{% if selected_category == category %} active{% endif %}" href="{% url 'product_list' %}?category={{ category.slug }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}{% if allergen_filter %}&amp;allergen={{ allergen_filter }}{% endif %}">{{ category.name }}</a>
       {% endfor %}
+    </div>
+
+    <div class="filters" aria-label="Allergen filters">
+      <a class="filter-link{% if not allergen_filter %} active{% endif %}" href="{% url 'product_list' %}{% if selected_category or query %}?{% if selected_category %}category={{ selected_category.slug }}{% endif %}{% if selected_category and query %}&amp;{% endif %}{% if query %}q={{ query|urlencode }}{% endif %}{% endif %}">All allergens</a>
+      <a class="filter-link{% if allergen_filter == 'contains' %} active{% endif %}" href="{% url 'product_list' %}?allergen=contains{% if selected_category %}&amp;category={{ selected_category.slug }}{% endif %}{% if query %}&amp;q={{ query|urlencode }}{% endif %}">Contains allergens</a>
+      <a class="filter-link{% if allergen_filter == 'none' %} active{% endif %}" href="{% url 'product_list' %}?allergen=none{% if selected_category %}&amp;category={{ selected_category.slug }}{% endif %}{% if query %}&amp;q={{ query|urlencode }}{% endif %}">No common allergens</a>
     </div>
   </section>
 

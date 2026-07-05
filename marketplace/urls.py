@@ -29,4 +29,10 @@ urlpatterns = [
     path("cart/items/<int:item_id>/remove/", views.cart_remove_item, name="cart_remove_item"),
     path("checkout/", views.checkout, name="checkout"),
     path("orders/<str:order_number>/", views.order_detail, name="order_detail"),
+    path("producer/orders/", views.producer_orders, name="producer_orders"),
+    path(
+        "producer/orders/<str:order_number>/status/",
+        views.order_status_update,
+        name="order_status_update",
+    ),
 ]

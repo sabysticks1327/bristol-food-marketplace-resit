@@ -1,6 +1,6 @@
 # Bristol Regional Food Network Marketplace - Resit Project
 
-This Django project currently implements **TC-001 to TC-007 and TC-022 only**.
+This Django project currently implements **TC-001 to TC-007, TC-009 to TC-011, TC-015, and TC-022 only**.
 
 ## Implemented Test Cases
 
@@ -13,6 +13,10 @@ This Django project currently implements **TC-001 to TC-007 and TC-022 only**.
 | TC-005 | Product Search | Implemented |
 | TC-006 | Shopping Cart | Implemented |
 | TC-007 | Single-Producer Checkout | Implemented |
+| TC-009 | Producer Incoming Orders | Implemented |
+| TC-010 | Order Status Updates | Implemented |
+| TC-011 | Inventory Updates | Implemented |
+| TC-015 | Allergen Warnings | Implemented |
 | TC-022 | Secure Authentication and Authorisation | Implemented |
 
 ## TC-001 Coverage
@@ -87,6 +91,43 @@ This Django project currently implements **TC-001 to TC-007 and TC-022 only**.
 - Customer and producer can view the confirmed order.
 - Other producers are blocked from viewing orders they do not own.
 
+## TC-009 Coverage
+
+- Producer order management page.
+- Incoming orders are sorted by delivery date.
+- Order rows show order number, customer, order date, delivery date, status, item summary, total value, and lead time.
+- Order detail page shows customer name, phone, email, delivery address, itemised products, and special instructions.
+- Producers can filter orders by status.
+- Producers cannot access another producer's orders.
+
+## TC-010 Coverage
+
+- Producers can update their own order status.
+- Status progression is enforced: `Pending` -> `Confirmed` -> `Ready for Delivery` -> `Delivered`.
+- Status skipping is rejected.
+- Status history records timestamp, note, status, and producer.
+- Customer notifications are created for status updates.
+- Customer account and order detail views show updated status.
+
+## TC-011 Coverage
+
+- Producers can update stock quantities and availability from the product edit page.
+- Stock validation rejects negative values.
+- Availability changes immediately affect public product visibility.
+- Inventory update history records previous and new stock/availability.
+- Low-stock alerts are created and shown to producers.
+- Producers can only edit their own products.
+
+## TC-015 Coverage
+
+- Allergen information is required when producers list or edit products.
+- Product cards and product detail pages show clear allergen warnings before cart actions.
+- Products with allergens use `Contains:` warning language.
+- Products without listed allergens show `No common allergens`.
+- Product search includes allergen information.
+- Marketplace allergen filters support `Contains allergens` and `No common allergens`.
+- Customers must acknowledge allergen information before adding products to cart.
+
 ## TC-022 Coverage
 
 - Password validation rejects weak passwords.
@@ -148,4 +189,4 @@ python manage.py test
 ```
 
 The tests verify TC-001 and TC-002 registration, role/profile creation, password hashing, duplicate/invalid registration handling, login, and profile/account access.
-The tests also verify TC-003 to TC-007 and TC-022 product creation, producer-only access control, category browsing, visible product filtering, product detail display, search matching, cart updates, single-producer checkout, payment record creation, commission calculation, order access control, login failure logging, rate limiting, logout, and protected-page checks.
+The tests also verify TC-003 to TC-007, TC-009 to TC-011, TC-015, and TC-022 product creation, producer-only access control, category browsing, visible product filtering, product detail display, search matching, cart updates, single-producer checkout, payment record creation, commission calculation, incoming order management, order status history, customer notifications, inventory update history, low-stock alerts, allergen warnings, allergen acknowledgement, login failure logging, rate limiting, logout, and protected-page checks.

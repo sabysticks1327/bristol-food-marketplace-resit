@@ -8,7 +8,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from .models import CustomerProfile, LoginAttempt, ProducerProfile, Product
+from .models import CustomerProfile, LoginAttempt, Order, ProducerProfile, Product
 
 
 class EmailAuthenticationForm(AuthenticationForm):
@@ -145,6 +145,12 @@ class CustomerRegistrationForm(BaseAccountCreationForm):
 
 
 class ProductForm(forms.ModelForm):
+    allergen_info = forms.CharField(
+        max_length=255,
+        help_text="Use standard language such as 'No common allergens' or 'Milk, Eggs, Nuts'.",
+        error_messages={"required": "Allergen information is required."},
+    )
+
     class Meta:
         model = Product
         fields = [
@@ -162,6 +168,12 @@ class ProductForm(forms.ModelForm):
             "harvest_date": forms.DateInput(attrs={"type": "date"}),
         }
 
+    def clean_allergen_info(self):
+        allergen_info = self.cleaned_data["allergen_info"].strip()
+        if not allergen_info:
+            raise forms.ValidationError("Allergen information is required.")
+        return allergen_info
+
 
 class CartItemForm(forms.Form):
     quantity = forms.DecimalField(
@@ -171,9 +183,14 @@ class CartItemForm(forms.Form):
         label="Quantity",
     )
 
-    def __init__(self, *args, product=None, **kwargs):
+    def __init__(self, *args, product=None, require_allergen_acknowledgement=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.product = product
+        if require_allergen_acknowledgement:
+            self.fields["allergen_acknowledged"] = forms.BooleanField(
+                label="I have reviewed the allergen information for this product.",
+                required=True,
+            )
 
     def clean_quantity(self):
         quantity = self.cleaned_data["quantity"]
@@ -191,6 +208,10 @@ class CheckoutForm(forms.Form):
     delivery_address = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}))
     delivery_postcode = forms.CharField(max_length=12)
     delivery_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    special_instructions = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
     payment_method = forms.ChoiceField(choices=PAYMENT_CHOICES)
 
     def clean_delivery_date(self):
@@ -201,3 +222,26 @@ class CheckoutForm(forms.Form):
                 "Delivery date must be at least 48 hours from today."
             )
         return delivery_date
+
+
+class OrderStatusUpdateForm(forms.Form):
+    status = forms.ChoiceField(choices=Order.STATUS_CHOICES)
+    note = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+
+    def __init__(self, *args, order=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.order = order
+        next_status = order.allowed_next_status if order else None
+        if next_status:
+            self.fields["status"].choices = [
+                (next_status, dict(Order.STATUS_CHOICES)[next_status])
+            ]
+        else:
+            self.fields["status"].choices = []
+            self.fields["status"].disabled = True
+
+    def clean_status(self):
+        status = self.cleaned_data["status"]
+        if self.order and not self.order.can_transition_to(status):
+            raise forms.ValidationError("Order status must follow the required progression.")
+        return status

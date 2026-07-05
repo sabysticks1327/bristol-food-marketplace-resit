@@ -1,14 +1,25 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import Group, User
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
-from marketplace.models import Category, CustomerProfile, ProducerProfile, Product
+from marketplace.models import (
+    Category,
+    CustomerProfile,
+    Order,
+    OrderItem,
+    OrderStatusHistory,
+    PaymentRecord,
+    ProducerProfile,
+    Product,
+    quantize_money,
+)
 
 
 class Command(BaseCommand):
-    help = "Seed demo users, categories, and products for TC-001 to TC-007 and TC-022."
+    help = "Seed demo users, products, orders, and security data for implemented test cases."
 
     def handle(self, *args, **options):
         producer_group, _ = Group.objects.get_or_create(name="Producer")
@@ -78,7 +89,7 @@ class Command(BaseCommand):
         customer_user.save()
         customer_user.groups.add(customer_group)
 
-        CustomerProfile.objects.update_or_create(
+        customer, _ = CustomerProfile.objects.update_or_create(
             user=customer_user,
             defaults={
                 "full_name": "Robert Johnson",
@@ -101,6 +112,14 @@ class Command(BaseCommand):
         dairy_eggs, _ = Category.objects.get_or_create(
             slug="dairy-eggs",
             defaults={"name": "Dairy & Eggs"},
+        )
+        bakery, _ = Category.objects.get_or_create(
+            slug="bakery",
+            defaults={"name": "Bakery"},
+        )
+        fruit, _ = Category.objects.get_or_create(
+            slug="fruit",
+            defaults={"name": "Fruit"},
         )
 
         products = [
@@ -137,7 +156,7 @@ class Command(BaseCommand):
                 "unit": "dozen",
                 "availability": Product.AVAILABILITY_AVAILABLE,
                 "stock_quantity": Decimal("50.00"),
-                "allergen_info": "Contains eggs",
+                "allergen_info": "Eggs",
                 "harvest_date": None,
             },
             {
@@ -149,19 +168,106 @@ class Command(BaseCommand):
                 "unit": "litre",
                 "availability": Product.AVAILABILITY_AVAILABLE,
                 "stock_quantity": Decimal("35.00"),
-                "allergen_info": "Contains milk",
+                "allergen_info": "Milk",
+                "harvest_date": None,
+            },
+            {
+                "producer": hillside_dairy,
+                "category": dairy_products,
+                "name": "Cheddar Cheese",
+                "description": "Mature cheddar made with local milk.",
+                "price": Decimal("4.20"),
+                "unit": "block",
+                "availability": Product.AVAILABILITY_AVAILABLE,
+                "stock_quantity": Decimal("12.00"),
+                "allergen_info": "Milk",
+                "harvest_date": None,
+            },
+            {
+                "producer": bristol_valley,
+                "category": bakery,
+                "name": "Walnut Bread",
+                "description": "Fresh bakery loaf with walnuts.",
+                "price": Decimal("3.80"),
+                "unit": "loaf",
+                "availability": Product.AVAILABILITY_AVAILABLE,
+                "stock_quantity": Decimal("8.00"),
+                "allergen_info": "Wheat (Gluten), Nuts (Walnuts)",
+                "harvest_date": None,
+            },
+            {
+                "producer": bristol_valley,
+                "category": fruit,
+                "name": "Fresh Apples",
+                "description": "Crisp local orchard apples.",
+                "price": Decimal("2.60"),
+                "unit": "kg",
+                "availability": Product.AVAILABILITY_AVAILABLE,
+                "stock_quantity": Decimal("30.00"),
+                "allergen_info": "No common allergens",
                 "harvest_date": None,
             },
         ]
 
+        saved_products = {}
         for product in products:
             defaults = product.copy()
             name = defaults.pop("name")
             producer = defaults.pop("producer")
-            Product.objects.update_or_create(
+            saved_product, _ = Product.objects.update_or_create(
                 name=name,
                 producer=producer,
                 defaults=defaults,
             )
+            saved_products[name] = saved_product
 
-        self.stdout.write(self.style.SUCCESS("TC-001 to TC-007 and TC-022 demo data seeded."))
+        demo_orders = [
+            ("BFM-DEMO-001", saved_products["Organic Carrots"], Decimal("2.00"), 2),
+            ("BFM-DEMO-002", saved_products["Organic Tomatoes"], Decimal("1.00"), 3),
+            ("BFM-DEMO-003", saved_products["Walnut Bread"], Decimal("1.00"), 4),
+        ]
+
+        for order_number, product, quantity, delivery_offset in demo_orders:
+            subtotal = quantize_money(product.price * quantity)
+            order, _ = Order.objects.update_or_create(
+                order_number=order_number,
+                defaults={
+                    "customer": customer,
+                    "producer": product.producer,
+                    "delivery_address": customer.delivery_address,
+                    "delivery_postcode": customer.postcode,
+                    "delivery_date": timezone.localdate() + timedelta(days=delivery_offset),
+                    "special_instructions": "Demo order for producer preparation workflow.",
+                    "status": Order.STATUS_PENDING,
+                    "subtotal": subtotal,
+                    "commission_amount": quantize_money(subtotal * Decimal("0.05")),
+                    "producer_payment_amount": quantize_money(subtotal * Decimal("0.95")),
+                },
+            )
+            order.items.all().delete()
+            OrderItem.objects.create(
+                order=order,
+                product=product,
+                product_name=product.name,
+                product_category=product.category.name,
+                unit=product.unit,
+                quantity=quantity,
+                unit_price=product.price,
+                line_total=subtotal,
+            )
+            PaymentRecord.objects.update_or_create(
+                order=order,
+                defaults={
+                    "provider": "test_sandbox",
+                    "transaction_reference": f"TEST-{order.order_number}",
+                    "amount": subtotal,
+                    "status": PaymentRecord.STATUS_SUCCESS,
+                },
+            )
+            OrderStatusHistory.objects.get_or_create(
+                order=order,
+                status=Order.STATUS_PENDING,
+                defaults={"note": "Demo order created."},
+            )
+
+        self.stdout.write(self.style.SUCCESS("Implemented test-case demo data seeded."))
