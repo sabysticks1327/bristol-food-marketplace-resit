@@ -1,0 +1,66 @@
+{% extends "marketplace/base.html" %}
+
+{% block title %}Checkout | Bristol Food Marketplace{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h1>Checkout</h1>
+        <p class="muted">Single-producer order from {{ producer.business_name }}.</p>
+      </div>
+      <a href="{% url 'cart_detail' %}">Back to cart</a>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Quantity</th>
+          <th>Unit price</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td>{{ item.product.name }}</td>
+            <td>{{ item.quantity }} {{ item.product.unit }}</td>
+            <td>&pound;{{ item.product.price }}</td>
+            <td>&pound;{{ item.line_total }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="summary">
+      <div class="summary-row">
+        <span>Subtotal</span>
+        <strong>&pound;{{ cart.subtotal }}</strong>
+      </div>
+      <div class="summary-row">
+        <span>Network commission (5%)</span>
+        <strong>&pound;{{ commission }}</strong>
+      </div>
+      <div class="summary-row">
+        <span>Producer payment (95%)</span>
+        <strong>&pound;{{ producer_payment }}</strong>
+      </div>
+      <p class="muted">Earliest delivery date: {{ minimum_delivery_date }}</p>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% for field in form %}
+        <div>
+          {{ field.label_tag }}
+          {{ field }}
+          {{ field.errors }}
+        </div>
+      {% endfor %}
+      <div class="actions">
+        <button type="submit">Confirm Order</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

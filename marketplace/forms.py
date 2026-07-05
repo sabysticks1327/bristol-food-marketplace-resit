@@ -1,13 +1,54 @@
+from datetime import timedelta
+from decimal import Decimal
+
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import Group, User
+from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils import timezone
 
-from .models import CustomerProfile, ProducerProfile, Product
+from .models import CustomerProfile, LoginAttempt, ProducerProfile, Product
 
 
 class EmailAuthenticationForm(AuthenticationForm):
     username = forms.EmailField(label="Email")
+    remember_me = forms.BooleanField(label="Remember me", required=False)
+
+    max_recent_failures = 5
+
+    def clean(self):
+        email = self.cleaned_data.get("username", "").strip().lower()
+        recent_cutoff = timezone.now() - timedelta(minutes=15)
+        recent_failures = LoginAttempt.objects.filter(
+            email__iexact=email,
+            was_successful=False,
+            created_at__gte=recent_cutoff,
+        ).count()
+
+        if email and recent_failures >= self.max_recent_failures:
+            raise ValidationError(
+                "Too many failed login attempts. Please wait before trying again.",
+                code="too_many_login_attempts",
+            )
+
+        try:
+            cleaned_data = super().clean()
+        except ValidationError:
+            if email:
+                LoginAttempt.objects.create(email=email, was_successful=False)
+            raise
+
+        if email:
+            LoginAttempt.objects.create(email=email, was_successful=True)
+        return cleaned_data
+
+    def confirm_login_allowed(self, user):
+        super().confirm_login_allowed(user)
+        if self.cleaned_data.get("remember_me"):
+            self.request.session.set_expiry(60 * 60 * 24 * 14)
+        else:
+            self.request.session.set_expiry(0)
 
 
 class BaseAccountCreationForm(UserCreationForm):
@@ -120,3 +161,43 @@ class ProductForm(forms.ModelForm):
         widgets = {
             "harvest_date": forms.DateInput(attrs={"type": "date"}),
         }
+
+
+class CartItemForm(forms.Form):
+    quantity = forms.DecimalField(
+        min_value=Decimal("0.01"),
+        max_digits=9,
+        decimal_places=2,
+        label="Quantity",
+    )
+
+    def __init__(self, *args, product=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.product = product
+
+    def clean_quantity(self):
+        quantity = self.cleaned_data["quantity"]
+        if self.product and quantity > self.product.stock_quantity:
+            raise forms.ValidationError(
+                f"Only {self.product.stock_quantity} {self.product.unit} available."
+            )
+        return quantity
+
+
+class CheckoutForm(forms.Form):
+    PAYMENT_TEST_CARD = "test_card"
+    PAYMENT_CHOICES = [(PAYMENT_TEST_CARD, "Test sandbox card")]
+
+    delivery_address = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}))
+    delivery_postcode = forms.CharField(max_length=12)
+    delivery_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    payment_method = forms.ChoiceField(choices=PAYMENT_CHOICES)
+
+    def clean_delivery_date(self):
+        delivery_date = self.cleaned_data["delivery_date"]
+        minimum_date = timezone.localdate() + timedelta(days=2)
+        if delivery_date < minimum_date:
+            raise forms.ValidationError(
+                "Delivery date must be at least 48 hours from today."
+            )
+        return delivery_date

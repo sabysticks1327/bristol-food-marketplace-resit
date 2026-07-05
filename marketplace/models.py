@@ -1,6 +1,16 @@
+from decimal import Decimal
+from uuid import uuid4
+
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.urls import reverse
+
+MONEY_QUANTIZER = Decimal("0.01")
+
+
+def quantize_money(value):
+    return Decimal(value).quantize(MONEY_QUANTIZER)
 
 
 class ProducerProfile(models.Model):
@@ -114,3 +124,185 @@ class Product(models.Model):
     @property
     def availability_label(self):
         return dict(self.AVAILABILITY_CHOICES).get(self.availability, self.availability)
+
+
+class Cart(models.Model):
+    customer = models.OneToOneField(
+        CustomerProfile,
+        on_delete=models.CASCADE,
+        related_name="cart",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"Cart for {self.customer}"
+
+    @property
+    def item_count(self):
+        count = sum((item.quantity for item in self.items.all()), Decimal("0"))
+        if count == count.to_integral_value():
+            return int(count)
+        return count
+
+    @property
+    def subtotal(self):
+        return quantize_money(sum((item.line_total for item in self.items.all()), Decimal("0")))
+
+    @property
+    def producer_count(self):
+        return self.items.values("product__producer").distinct().count()
+
+    @property
+    def single_producer(self):
+        producers = {
+            item.product.producer_id
+            for item in self.items.select_related("product__producer")
+        }
+        if len(producers) != 1:
+            return None
+        return self.items.select_related("product__producer").first().product.producer
+
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="cart_items")
+    quantity = models.DecimalField(
+        max_digits=9,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["cart", "product"],
+                name="unique_product_per_cart",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name}"
+
+    @property
+    def line_total(self):
+        return quantize_money(self.product.price * self.quantity)
+
+
+def generate_order_number():
+    return f"BFM-{uuid4().hex[:10].upper()}"
+
+
+class Order(models.Model):
+    STATUS_PENDING = "pending"
+    STATUS_CONFIRMED = "confirmed"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_CONFIRMED, "Confirmed"),
+    ]
+
+    customer = models.ForeignKey(
+        CustomerProfile,
+        on_delete=models.PROTECT,
+        related_name="orders",
+    )
+    producer = models.ForeignKey(
+        ProducerProfile,
+        on_delete=models.PROTECT,
+        related_name="orders",
+    )
+    order_number = models.CharField(
+        max_length=24,
+        unique=True,
+        default=generate_order_number,
+        editable=False,
+    )
+    delivery_address = models.TextField()
+    delivery_postcode = models.CharField(max_length=12)
+    delivery_date = models.DateField()
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    commission_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    producer_payment_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.order_number
+
+    def get_absolute_url(self):
+        return reverse("order_detail", kwargs={"order_number": self.order_number})
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="order_items",
+    )
+    product_name = models.CharField(max_length=150)
+    product_category = models.CharField(max_length=80)
+    unit = models.CharField(max_length=40)
+    quantity = models.DecimalField(max_digits=9, decimal_places=2)
+    unit_price = models.DecimalField(max_digits=8, decimal_places=2)
+    line_total = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product_name}"
+
+
+class PaymentRecord(models.Model):
+    STATUS_SUCCESS = "success"
+    STATUS_CHOICES = [(STATUS_SUCCESS, "Success")]
+
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="payment_record",
+    )
+    provider = models.CharField(max_length=80, default="test_sandbox")
+    transaction_reference = models.CharField(max_length=80, unique=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default=STATUS_SUCCESS,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.transaction_reference
+
+
+class LoginAttempt(models.Model):
+    email = models.EmailField()
+    was_successful = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        outcome = "successful" if self.was_successful else "failed"
+        return f"{outcome} login for {self.email}"

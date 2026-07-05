@@ -27,5 +27,18 @@
       <dt>Producer</dt>
       <dd>{{ product.producer.business_name }}</dd>
     </dl>
+
+    <div class="actions">
+      {% if user.is_authenticated and user.customer_profile %}
+        <form method="post" action="{% url 'add_to_cart' product.pk %}">
+          {% csrf_token %}
+          {{ add_to_cart_form.quantity.label_tag }}
+          {{ add_to_cart_form.quantity }}
+          <button type="submit">Add to Cart</button>
+        </form>
+      {% elif not user.is_authenticated %}
+        <a class="button" href="{% url 'login' %}">Log in to add to cart</a>
+      {% endif %}
+    </div>
   </section>
 {% endblock %}

@@ -1,6 +1,6 @@
 # Bristol Regional Food Network Marketplace - Resit Project
 
-This Django project currently implements **TC-001 to TC-005 only**.
+This Django project currently implements **TC-001 to TC-007 and TC-022 only**.
 
 ## Implemented Test Cases
 
@@ -11,6 +11,9 @@ This Django project currently implements **TC-001 to TC-005 only**.
 | TC-003 | Product Listing Creation | Implemented |
 | TC-004 | Browse Products by Category | Implemented |
 | TC-005 | Product Search | Implemented |
+| TC-006 | Shopping Cart | Implemented |
+| TC-007 | Single-Producer Checkout | Implemented |
+| TC-022 | Secure Authentication and Authorisation | Implemented |
 
 ## TC-001 Coverage
 
@@ -61,6 +64,42 @@ This Django project currently implements **TC-001 to TC-005 only**.
 - Combined category and search parameters.
 - No-results message when no visible product matches the search.
 
+## TC-006 Coverage
+
+- Logged-in customers can add visible products to a persistent cart.
+- Cart page shows product, producer, unit price, quantity, line total, and cart total.
+- Cart navigation displays the current item count.
+- Customers can update item quantities.
+- Customers can remove items from the cart.
+- Producer information is shown for multi-vendor awareness.
+- Producer accounts are blocked from customer cart access.
+
+## TC-007 Coverage
+
+- Checkout is available when the cart contains products from one producer.
+- Checkout is blocked when the cart contains products from multiple producers.
+- Delivery address and postcode are pre-filled from the customer profile.
+- Delivery date validation enforces at least 48 hours lead time.
+- Order records are created with `Pending` status.
+- Order items preserve purchased product, quantity, and price details.
+- Test sandbox payment records are stored.
+- 5% network commission and 95% producer payment are calculated and recorded.
+- Customer and producer can view the confirmed order.
+- Other producers are blocked from viewing orders they do not own.
+
+## TC-022 Coverage
+
+- Password validation rejects weak passwords.
+- Passwords are stored as Django password hashes, not plain text.
+- Failed login attempts are recorded.
+- Basic login rate limiting blocks too many recent failures.
+- Correct login creates an authenticated session.
+- Logout terminates the session and protected pages require re-login.
+- Role-based access control blocks customers from producer-only features.
+- Product ownership checks prevent one producer editing another producer's product.
+- Order authorisation prevents unrelated producers viewing another producer's order.
+- Search uses Django ORM filtering and does not expose unavailable products through injection-style input.
+
 ## Local Setup
 
 ```bash
@@ -109,4 +148,4 @@ python manage.py test
 ```
 
 The tests verify TC-001 and TC-002 registration, role/profile creation, password hashing, duplicate/invalid registration handling, login, and profile/account access.
-The tests also verify TC-003 to TC-005 product creation, producer-only access control, category browsing, visible product filtering, product detail display, search matching, and no-results handling.
+The tests also verify TC-003 to TC-007 and TC-022 product creation, producer-only access control, category browsing, visible product filtering, product detail display, search matching, cart updates, single-producer checkout, payment record creation, commission calculation, order access control, login failure logging, rate limiting, logout, and protected-page checks.

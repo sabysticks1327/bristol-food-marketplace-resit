@@ -2,7 +2,10 @@
 
 {% block content %}
   <section class="panel">
-    <h1>Customer Account</h1>
+    <div class="toolbar">
+      <h1>Customer Account</h1>
+      <a class="button" href="{% url 'cart_detail' %}">View cart</a>
+    </div>
     <p>Your customer account is ready to browse and purchase local products.</p>
     <dl>
       <dt>Full name</dt>
@@ -20,5 +23,43 @@
       <dt>Terms accepted</dt>
       <dd>{{ customer.accepted_terms|yesno:"Yes,No" }}</dd>
     </dl>
+  </section>
+
+  <section style="margin-top: 24px;">
+    <div class="toolbar">
+      <h2>Your Orders</h2>
+      <a href="{% url 'product_list' %}">Browse products</a>
+    </div>
+
+    {% if orders %}
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Producer</th>
+            <th>Status</th>
+            <th>Delivery date</th>
+            <th>Total</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+            <tr>
+              <td>{{ order.order_number }}</td>
+              <td>{{ order.producer.business_name }}</td>
+              <td>{{ order.get_status_display }}</td>
+              <td>{{ order.delivery_date }}</td>
+              <td>&pound;{{ order.subtotal }}</td>
+              <td><a href="{{ order.get_absolute_url }}">View</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="panel">
+        <p class="muted">No orders yet.</p>
+      </div>
+    {% endif %}
   </section>
 {% endblock %}

@@ -62,4 +62,41 @@
       </div>
     {% endif %}
   </section>
+
+  <section style="margin-top: 24px;">
+    <div class="toolbar">
+      <h2>Single-Producer Orders</h2>
+    </div>
+
+    {% if incoming_orders %}
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Status</th>
+            <th>Delivery date</th>
+            <th>Total</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in incoming_orders %}
+            <tr>
+              <td>{{ order.order_number }}</td>
+              <td>{{ order.customer.full_name }}</td>
+              <td>{{ order.get_status_display }}</td>
+              <td>{{ order.delivery_date }}</td>
+              <td>&pound;{{ order.subtotal }}</td>
+              <td><a href="{{ order.get_absolute_url }}">View</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="panel">
+        <p class="muted">No confirmed single-producer orders yet.</p>
+      </div>
+    {% endif %}
+  </section>
 {% endblock %}

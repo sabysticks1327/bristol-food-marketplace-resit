@@ -1,0 +1,77 @@
+{% extends "marketplace/base.html" %}
+
+{% block title %}Order {{ order.order_number }} | Bristol Food Marketplace{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h1>Order {{ order.order_number }}</h1>
+        <p class="muted">{{ order.get_status_display }} | {{ order.created_at }}</p>
+      </div>
+      {% if user.customer_profile %}
+        <a href="{% url 'customer_account' %}">Back to account</a>
+      {% elif user.producer_profile %}
+        <a href="{% url 'producer_dashboard' %}">Back to dashboard</a>
+      {% endif %}
+    </div>
+
+    <dl class="detail-list">
+      <dt>Customer</dt>
+      <dd>{{ order.customer.full_name }}</dd>
+      <dt>Producer</dt>
+      <dd>{{ order.producer.business_name }}</dd>
+      <dt>Delivery address</dt>
+      <dd>{{ order.delivery_address }}</dd>
+      <dt>Delivery postcode</dt>
+      <dd>{{ order.delivery_postcode }}</dd>
+      <dt>Delivery date</dt>
+      <dd>{{ order.delivery_date }}</dd>
+      <dt>Payment</dt>
+      <dd>{{ order.payment_record.get_status_display }} via {{ order.payment_record.provider }}</dd>
+    </dl>
+
+    <h2>Items</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Category</th>
+          <th>Quantity</th>
+          <th>Unit price</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in order.items.all %}
+          <tr>
+            <td>{{ item.product_name }}</td>
+            <td>{{ item.product_category }}</td>
+            <td>{{ item.quantity }} {{ item.unit }}</td>
+            <td>&pound;{{ item.unit_price }}</td>
+            <td>&pound;{{ item.line_total }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="summary">
+      <div class="summary-row">
+        <span>Subtotal</span>
+        <strong>&pound;{{ order.subtotal }}</strong>
+      </div>
+      <div class="summary-row">
+        <span>Network commission (5%)</span>
+        <strong>&pound;{{ order.commission_amount }}</strong>
+      </div>
+      <div class="summary-row">
+        <span>Producer payment (95%)</span>
+        <strong>&pound;{{ order.producer_payment_amount }}</strong>
+      </div>
+      <div class="summary-row">
+        <span>Payment reference</span>
+        <strong>{{ order.payment_record.transaction_reference }}</strong>
+      </div>
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "marketplace/base.html" %}
+
+{% block title %}Cart | Bristol Food Marketplace{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h1>Shopping Cart</h1>
+        <p class="muted">Review quantities and prices before checkout.</p>
+      </div>
+      <a href="{% url 'product_list' %}">Continue shopping</a>
+    </div>
+
+    {% if items %}
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Producer</th>
+            <th>Unit price</th>
+            <th>Quantity</th>
+            <th>Total</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+            <tr>
+              <td>{{ item.product.name }}</td>
+              <td>{{ item.product.producer.business_name }}</td>
+              <td>&pound;{{ item.product.price }} / {{ item.product.unit }}</td>
+              <td>
+                <form method="post" action="{% url 'cart_update_item' item.pk %}">
+                  {% csrf_token %}
+                  <input type="number" name="quantity" value="{{ item.quantity }}" min="0.01" step="0.01" aria-label="Quantity for {{ item.product.name }}">
+                  <button type="submit">Update</button>
+                </form>
+              </td>
+              <td>&pound;{{ item.line_total }}</td>
+              <td>
+                <form method="post" action="{% url 'cart_remove_item' item.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="button secondary">Remove</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="summary">
+        <div class="summary-row">
+          <span>Cart items</span>
+          <strong>{{ cart.item_count }}</strong>
+        </div>
+        <div class="summary-row">
+          <span>Cart total</span>
+          <strong>&pound;{{ cart.subtotal }}</strong>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a class="button" href="{% url 'checkout' %}">Proceed to Checkout</a>
+      </div>
+    {% else %}
+      <p class="muted">Your cart is empty.</p>
+      <div class="actions">
+        <a class="button" href="{% url 'product_list' %}">Browse products</a>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

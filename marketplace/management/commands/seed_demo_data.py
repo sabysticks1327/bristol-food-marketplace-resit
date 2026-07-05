@@ -8,7 +8,7 @@ from marketplace.models import Category, CustomerProfile, ProducerProfile, Produ
 
 
 class Command(BaseCommand):
-    help = "Seed demo users, categories, and products for TC-001 to TC-005."
+    help = "Seed demo users, categories, and products for TC-001 to TC-007 and TC-022."
 
     def handle(self, *args, **options):
         producer_group, _ = Group.objects.get_or_create(name="Producer")
@@ -164,4 +164,4 @@ class Command(BaseCommand):
                 defaults=defaults,
             )
 
-        self.stdout.write(self.style.SUCCESS("TC-001 to TC-005 demo data seeded."))
+        self.stdout.write(self.style.SUCCESS("TC-001 to TC-007 and TC-022 demo data seeded."))

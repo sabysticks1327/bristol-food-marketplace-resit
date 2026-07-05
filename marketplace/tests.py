@@ -1,11 +1,21 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
-from .models import Category, CustomerProfile, ProducerProfile, Product
+from .models import (
+    Cart,
+    Category,
+    CustomerProfile,
+    LoginAttempt,
+    Order,
+    PaymentRecord,
+    ProducerProfile,
+    Product,
+)
 
 
 class ProducerRegistrationTests(TestCase):
@@ -204,7 +214,7 @@ class ProductMarketplaceTests(TestCase):
             password="StrongCustomerPass!2026",
         )
         self.customer_user.groups.add(customer_group)
-        CustomerProfile.objects.create(
+        self.customer = CustomerProfile.objects.create(
             user=self.customer_user,
             full_name="Robert Johnson",
             phone="07700 900123",
@@ -222,6 +232,12 @@ class ProductMarketplaceTests(TestCase):
             password="StrongProducerPass!2026",
         )
 
+    def login_customer(self):
+        return self.client.login(
+            username="robert.johnson@email.com",
+            password="StrongCustomerPass!2026",
+        )
+
     def make_product(
         self,
         name,
@@ -230,17 +246,20 @@ class ProductMarketplaceTests(TestCase):
         description="Fresh local food from Bristol.",
         availability=Product.AVAILABILITY_IN_SEASON,
         stock_quantity="10.00",
+        price="2.50",
+        unit="kg",
+        allergen_info="No common allergens",
     ):
         return Product.objects.create(
             producer=producer or self.producer,
             category=category,
             name=name,
             description=description,
-            price=Decimal("2.50"),
-            unit="kg",
+            price=Decimal(price),
+            unit=unit,
             availability=availability,
             stock_quantity=Decimal(stock_quantity),
-            allergen_info="No common allergens",
+            allergen_info=allergen_info,
             harvest_date=date(2026, 7, 1),
         )
 
@@ -349,3 +368,278 @@ class ProductMarketplaceTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "No products found")
         self.assertNotContains(response, "Organic Carrots")
+
+    def test_tc006_customer_can_add_update_and_remove_cart_items(self):
+        carrots = self.make_product(
+            "Organic Carrots",
+            self.vegetables,
+            price="2.00",
+            unit="kg",
+            stock_quantity="50.00",
+        )
+        milk = self.make_product(
+            "Fresh Milk",
+            self.dairy,
+            producer=self.hillside,
+            price="1.80",
+            unit="litre",
+            stock_quantity="35.00",
+        )
+        self.assertTrue(self.login_customer())
+
+        self.assertRedirects(
+            self.client.post(
+                reverse("add_to_cart", kwargs={"pk": carrots.pk}),
+                {"quantity": "2.00"},
+            ),
+            carrots.get_absolute_url(),
+        )
+        self.assertRedirects(
+            self.client.post(
+                reverse("add_to_cart", kwargs={"pk": milk.pk}),
+                {"quantity": "3.00"},
+            ),
+            milk.get_absolute_url(),
+        )
+
+        cart = Cart.objects.get(customer=self.customer)
+        self.assertEqual(cart.item_count, 5)
+        self.assertEqual(cart.subtotal, Decimal("9.40"))
+
+        response = self.client.get(reverse("cart_detail"))
+        self.assertContains(response, "Cart (5)")
+        self.assertContains(response, "Organic Carrots")
+        self.assertContains(response, "Fresh Milk")
+        self.assertContains(response, "Bristol Valley Farm")
+        self.assertContains(response, "Hillside Dairy")
+        self.assertContains(response, "9.40")
+
+        carrot_item = cart.items.get(product=carrots)
+        self.assertRedirects(
+            self.client.post(
+                reverse("cart_update_item", kwargs={"item_id": carrot_item.pk}),
+                {"quantity": "3.00"},
+            ),
+            reverse("cart_detail"),
+        )
+        cart.refresh_from_db()
+        self.assertEqual(cart.items.get(product=carrots).quantity, Decimal("3.00"))
+        self.assertEqual(cart.subtotal, Decimal("11.40"))
+
+        milk_item = cart.items.get(product=milk)
+        self.assertRedirects(
+            self.client.post(
+                reverse("cart_remove_item", kwargs={"item_id": milk_item.pk})
+            ),
+            reverse("cart_detail"),
+        )
+        self.assertFalse(cart.items.filter(product=milk).exists())
+
+    def test_tc006_only_customers_can_use_cart(self):
+        carrots = self.make_product("Organic Carrots", self.vegetables)
+
+        unauthenticated = self.client.post(
+            reverse("add_to_cart", kwargs={"pk": carrots.pk}),
+            {"quantity": "1.00"},
+        )
+        self.assertEqual(unauthenticated.status_code, 302)
+
+        self.assertTrue(self.login_producer())
+        producer_response = self.client.get(reverse("cart_detail"))
+        self.assertEqual(producer_response.status_code, 403)
+
+    def test_tc007_single_producer_checkout_creates_order_payment_and_clears_cart(self):
+        carrots = self.make_product(
+            "Organic Carrots",
+            self.vegetables,
+            price="2.00",
+            unit="kg",
+            stock_quantity="50.00",
+        )
+        tomatoes = self.make_product(
+            "Organic Tomatoes",
+            self.vegetables,
+            price="3.00",
+            unit="kg",
+            stock_quantity="20.00",
+        )
+        self.assertTrue(self.login_customer())
+        self.client.post(
+            reverse("add_to_cart", kwargs={"pk": carrots.pk}),
+            {"quantity": "2.00"},
+        )
+        self.client.post(
+            reverse("add_to_cart", kwargs={"pk": tomatoes.pk}),
+            {"quantity": "1.00"},
+        )
+
+        checkout_page = self.client.get(reverse("checkout"))
+        self.assertEqual(checkout_page.status_code, 200)
+        self.assertContains(checkout_page, "45 Park Street, Bristol")
+        self.assertContains(checkout_page, "Bristol Valley Farm")
+        self.assertContains(checkout_page, "Network commission (5%)")
+
+        invalid_date = timezone.localdate() + timedelta(days=1)
+        invalid_response = self.client.post(
+            reverse("checkout"),
+            {
+                "delivery_address": "45 Park Street, Bristol",
+                "delivery_postcode": "BS1 5JG",
+                "delivery_date": invalid_date.isoformat(),
+                "payment_method": "test_card",
+            },
+        )
+        self.assertEqual(invalid_response.status_code, 200)
+        self.assertContains(invalid_response, "Delivery date must be at least 48 hours")
+        self.assertEqual(Order.objects.count(), 0)
+
+        delivery_date = timezone.localdate() + timedelta(days=2)
+        response = self.client.post(
+            reverse("checkout"),
+            {
+                "delivery_address": "45 Park Street, Bristol",
+                "delivery_postcode": "BS1 5JG",
+                "delivery_date": delivery_date.isoformat(),
+                "payment_method": "test_card",
+            },
+        )
+
+        order = Order.objects.get()
+        self.assertRedirects(response, order.get_absolute_url())
+        self.assertEqual(order.status, Order.STATUS_PENDING)
+        self.assertEqual(order.customer, self.customer)
+        self.assertEqual(order.producer, self.producer)
+        self.assertEqual(order.subtotal, Decimal("7.00"))
+        self.assertEqual(order.commission_amount, Decimal("0.35"))
+        self.assertEqual(order.producer_payment_amount, Decimal("6.65"))
+        self.assertEqual(order.delivery_date, delivery_date)
+        self.assertEqual(order.items.count(), 2)
+        self.assertTrue(PaymentRecord.objects.filter(order=order, amount=Decimal("7.00")).exists())
+        self.assertFalse(Cart.objects.get(customer=self.customer).items.exists())
+
+        carrots.refresh_from_db()
+        tomatoes.refresh_from_db()
+        self.assertEqual(carrots.stock_quantity, Decimal("48.00"))
+        self.assertEqual(tomatoes.stock_quantity, Decimal("19.00"))
+
+        confirmation = self.client.get(order.get_absolute_url())
+        self.assertContains(confirmation, order.order_number)
+        self.assertContains(confirmation, "Producer payment (95%)")
+
+        self.client.logout()
+        self.client.login(
+            username="jane.smith@bristolvalleyfarm.com",
+            password="StrongProducerPass!2026",
+        )
+        producer_view = self.client.get(order.get_absolute_url())
+        self.assertEqual(producer_view.status_code, 200)
+        self.assertContains(producer_view, "Robert Johnson")
+
+        self.client.logout()
+        self.client.login(
+            username="tom.harris@hillsidedairy.co.uk",
+            password="StrongProducerPass!2026",
+        )
+        other_producer_view = self.client.get(order.get_absolute_url())
+        self.assertEqual(other_producer_view.status_code, 403)
+
+    def test_tc007_single_producer_checkout_blocks_mixed_producer_cart(self):
+        carrots = self.make_product("Organic Carrots", self.vegetables)
+        milk = self.make_product(
+            "Fresh Milk",
+            self.dairy,
+            producer=self.hillside,
+            price="1.80",
+            unit="litre",
+        )
+        self.assertTrue(self.login_customer())
+        self.client.post(
+            reverse("add_to_cart", kwargs={"pk": carrots.pk}),
+            {"quantity": "1.00"},
+        )
+        self.client.post(
+            reverse("add_to_cart", kwargs={"pk": milk.pk}),
+            {"quantity": "1.00"},
+        )
+
+        response = self.client.get(reverse("checkout"))
+
+        self.assertRedirects(response, reverse("cart_detail"))
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_tc022_login_security_logs_failures_and_rate_limits(self):
+        login_url = reverse("login")
+        for _ in range(5):
+            response = self.client.post(
+                login_url,
+                {
+                    "username": "robert.johnson@email.com",
+                    "password": "WrongPassword!2026",
+                },
+            )
+            self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(
+            LoginAttempt.objects.filter(
+                email="robert.johnson@email.com",
+                was_successful=False,
+            ).count(),
+            5,
+        )
+
+        blocked_response = self.client.post(
+            login_url,
+            {
+                "username": "robert.johnson@email.com",
+                "password": "StrongCustomerPass!2026",
+            },
+        )
+
+        self.assertEqual(blocked_response.status_code, 200)
+        self.assertContains(blocked_response, "Too many failed login attempts")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_tc022_password_hashing_logout_and_protected_pages(self):
+        self.assertNotEqual(self.customer_user.password, "StrongCustomerPass!2026")
+        self.assertTrue(self.customer_user.check_password("StrongCustomerPass!2026"))
+        self.assertTrue(self.customer_user.password.startswith("pbkdf2_"))
+
+        self.assertTrue(self.login_customer())
+        account_response = self.client.get(reverse("customer_account"))
+        self.assertEqual(account_response.status_code, 200)
+
+        self.client.post(reverse("logout"))
+        protected_response = self.client.get(reverse("customer_account"))
+        self.assertEqual(protected_response.status_code, 302)
+        self.assertIn(reverse("login"), protected_response["Location"])
+
+    def test_tc022_authorisation_prevents_wrong_role_and_wrong_owner_access(self):
+        carrots = self.make_product("Organic Carrots", self.vegetables)
+
+        self.assertTrue(self.login_customer())
+        customer_create_response = self.client.get(reverse("product_create"))
+        self.assertEqual(customer_create_response.status_code, 403)
+
+        self.client.logout()
+        self.client.login(
+            username="tom.harris@hillsidedairy.co.uk",
+            password="StrongProducerPass!2026",
+        )
+        other_owner_response = self.client.get(
+            reverse("product_edit", kwargs={"pk": carrots.pk})
+        )
+        self.assertEqual(other_owner_response.status_code, 404)
+
+    def test_tc022_search_uses_orm_and_does_not_expose_unavailable_products(self):
+        self.make_product("Organic Carrots", self.vegetables)
+        self.make_product(
+            "Hidden Cabbage",
+            self.vegetables,
+            availability=Product.AVAILABILITY_UNAVAILABLE,
+        )
+
+        response = self.client.get(reverse("product_list"), {"q": "' OR 1=1 --"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No products found")
+        self.assertNotContains(response, "Hidden Cabbage")

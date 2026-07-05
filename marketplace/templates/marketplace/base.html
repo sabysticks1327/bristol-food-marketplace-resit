@@ -208,6 +208,24 @@
       margin: 2px 0 0;
     }
 
+    .summary {
+      display: grid;
+      gap: 8px;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .summary-row strong {
+      color: var(--accent-dark);
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -263,6 +281,7 @@
           {% endif %}
           {% if user.customer_profile %}
             <a href="{% url 'customer_account' %}">Customer account</a>
+            <a href="{% url 'cart_detail' %}">Cart ({{ cart_item_count }})</a>
           {% endif %}
           <form method="post" action="{% url 'logout' %}" style="display:inline;">
             {% csrf_token %}

@@ -23,4 +23,10 @@ urlpatterns = [
     path("producer/products/<int:pk>/edit/", views.product_edit, name="product_edit"),
     path("marketplace/", views.product_list, name="product_list"),
     path("marketplace/products/<int:pk>/", views.product_detail, name="product_detail"),
+    path("cart/", views.cart_detail, name="cart_detail"),
+    path("cart/add/<int:pk>/", views.add_to_cart, name="add_to_cart"),
+    path("cart/items/<int:item_id>/update/", views.cart_update_item, name="cart_update_item"),
+    path("cart/items/<int:item_id>/remove/", views.cart_remove_item, name="cart_remove_item"),
+    path("checkout/", views.checkout, name="checkout"),
+    path("orders/<str:order_number>/", views.order_detail, name="order_detail"),
 ]
