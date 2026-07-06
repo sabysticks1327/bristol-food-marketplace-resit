@@ -133,6 +133,9 @@ class Command(BaseCommand):
                 "availability": Product.AVAILABILITY_IN_SEASON,
                 "stock_quantity": Decimal("50.00"),
                 "allergen_info": "No common allergens",
+                "organic_certified": True,
+                "certification_body": "Soil Association",
+                "certification_number": "SA-BVF-001",
                 "harvest_date": date(2026, 7, 1),
             },
             {
@@ -145,6 +148,9 @@ class Command(BaseCommand):
                 "availability": Product.AVAILABILITY_IN_SEASON,
                 "stock_quantity": Decimal("20.00"),
                 "allergen_info": "No common allergens",
+                "organic_certified": True,
+                "certification_body": "Soil Association",
+                "certification_number": "SA-BVF-002",
                 "harvest_date": date(2026, 7, 2),
             },
             {
@@ -157,6 +163,9 @@ class Command(BaseCommand):
                 "availability": Product.AVAILABILITY_AVAILABLE,
                 "stock_quantity": Decimal("50.00"),
                 "allergen_info": "Eggs",
+                "organic_certified": True,
+                "certification_body": "Organic Farmers & Growers",
+                "certification_number": "OFG-BVF-003",
                 "harvest_date": None,
             },
             {
@@ -169,6 +178,9 @@ class Command(BaseCommand):
                 "availability": Product.AVAILABILITY_AVAILABLE,
                 "stock_quantity": Decimal("35.00"),
                 "allergen_info": "Milk",
+                "organic_certified": False,
+                "certification_body": "",
+                "certification_number": "",
                 "harvest_date": None,
             },
             {
@@ -181,6 +193,9 @@ class Command(BaseCommand):
                 "availability": Product.AVAILABILITY_AVAILABLE,
                 "stock_quantity": Decimal("12.00"),
                 "allergen_info": "Milk",
+                "organic_certified": False,
+                "certification_body": "",
+                "certification_number": "",
                 "harvest_date": None,
             },
             {
@@ -193,6 +208,9 @@ class Command(BaseCommand):
                 "availability": Product.AVAILABILITY_AVAILABLE,
                 "stock_quantity": Decimal("8.00"),
                 "allergen_info": "Wheat (Gluten), Nuts (Walnuts)",
+                "organic_certified": True,
+                "certification_body": "Soil Association",
+                "certification_number": "SA-BVF-004",
                 "harvest_date": None,
             },
             {
@@ -205,6 +223,9 @@ class Command(BaseCommand):
                 "availability": Product.AVAILABILITY_AVAILABLE,
                 "stock_quantity": Decimal("30.00"),
                 "allergen_info": "No common allergens",
+                "organic_certified": True,
+                "certification_body": "Soil Association",
+                "certification_number": "SA-BVF-005",
                 "harvest_date": None,
             },
         ]
@@ -268,6 +289,55 @@ class Command(BaseCommand):
                 order=order,
                 status=Order.STATUS_PENDING,
                 defaults={"note": "Demo order created."},
+            )
+
+        previous_week_start = timezone.localdate() - timedelta(days=timezone.localdate().weekday() + 7)
+        settlement_orders = [
+            ("BFM-SETTLE-001", saved_products["Organic Carrots"], Decimal("3.00"), 1),
+            ("BFM-SETTLE-002", saved_products["Walnut Bread"], Decimal("2.00"), 3),
+        ]
+
+        for order_number, product, quantity, day_offset in settlement_orders:
+            subtotal = quantize_money(product.price * quantity)
+            order, _ = Order.objects.update_or_create(
+                order_number=order_number,
+                defaults={
+                    "customer": customer,
+                    "producer": product.producer,
+                    "delivery_address": customer.delivery_address,
+                    "delivery_postcode": customer.postcode,
+                    "delivery_date": previous_week_start + timedelta(days=day_offset),
+                    "special_instructions": "Delivered order for weekly settlement demo.",
+                    "status": Order.STATUS_DELIVERED,
+                    "subtotal": subtotal,
+                    "commission_amount": quantize_money(subtotal * Decimal("0.05")),
+                    "producer_payment_amount": quantize_money(subtotal * Decimal("0.95")),
+                },
+            )
+            order.items.all().delete()
+            OrderItem.objects.create(
+                order=order,
+                product=product,
+                product_name=product.name,
+                product_category=product.category.name,
+                unit=product.unit,
+                quantity=quantity,
+                unit_price=product.price,
+                line_total=subtotal,
+            )
+            PaymentRecord.objects.update_or_create(
+                order=order,
+                defaults={
+                    "provider": "test_sandbox",
+                    "transaction_reference": f"TEST-{order.order_number}",
+                    "amount": subtotal,
+                    "status": PaymentRecord.STATUS_SUCCESS,
+                },
+            )
+            OrderStatusHistory.objects.get_or_create(
+                order=order,
+                status=Order.STATUS_DELIVERED,
+                defaults={"note": "Demo delivered order for settlement."},
             )
 
         self.stdout.write(self.style.SUCCESS("Implemented test-case demo data seeded."))

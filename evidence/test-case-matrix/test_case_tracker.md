@@ -12,7 +12,9 @@
 | TC-009 | Producer Incoming Orders | Critical | Implemented | Pending screenshot | Pending commit | Producer order management, customer details, item summaries, delivery-date sorting |
 | TC-010 | Order Status Updates | High | Implemented | Pending screenshot | Pending commit | Status progression, audit history, notes, and customer notifications |
 | TC-011 | Inventory Update | High | Implemented | Pending screenshot | Pending commit | Stock/availability edits, update history, public visibility, low-stock alerts |
-| TC-012 | Weekly Payment Settlement | Critical | Not Started | | | |
+| TC-012 | Weekly Payment Settlement | Critical | Implemented | Pending screenshot | Pending commit | Delivered orders only, 5% commission, 95% producer payment, CSV report, tax-year total |
+| TC-014 | Organic Certification Filter | Medium | Implemented | Pending screenshot | Pending commit | Organic fields, producer validation, certified badge/detail, marketplace filter |
 | TC-015 | Allergen Warnings | Critical | Implemented | Pending screenshot | Pending commit | Required allergen info, warning display, allergen search/filter, cart acknowledgement |
 | TC-016 | Seasonal Availability | High | Not Started | | | |
+| TC-021 | Order History and Reorder | High | Implemented | Pending screenshot | Pending commit | Newest-first history, producer/date filters, receipt CSV, availability-aware reorder |
 | TC-022 | Secure Authentication & Authorisation | Critical | Implemented | Pending screenshot | Pending commit | Password hashing, failed login logging, rate limiting, logout, RBAC, ownership checks |

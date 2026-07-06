@@ -21,6 +21,15 @@
     <dl class="detail-list">
       <dt>Availability</dt>
       <dd><span class="badge">{{ product.availability_label }}</span></dd>
+      <dt>Organic certification</dt>
+      <dd>
+        {% if product.organic_certified %}
+          <span class="badge">{{ product.organic_label }}</span>
+          {% if product.certification_number %}<span class="muted">Certificate {{ product.certification_number }}</span>{% endif %}
+        {% else %}
+          {{ product.organic_label }}
+        {% endif %}
+      </dd>
       <dt>Stock quantity</dt>
       <dd>{{ product.stock_quantity }} {{ product.unit }}</dd>
       <dt>Allergen information</dt>

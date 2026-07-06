@@ -1,0 +1,119 @@
+{% extends "marketplace/base.html" %}
+
+{% block title %}Weekly Payment Settlements | Bristol Food Marketplace{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h1>Weekly Payment Settlement</h1>
+        <p class="muted">{{ settlement.week_start }} to {{ settlement.week_end }}</p>
+      </div>
+      <a href="{% url 'producer_dashboard' %}">Back to dashboard</a>
+    </div>
+
+    <form class="search-form" method="get" action="{% url 'producer_settlements' %}">
+      <input type="date" name="week_start" value="{{ settlement.week_start|date:'Y-m-d' }}" aria-label="Week start">
+      <button type="submit">View week</button>
+    </form>
+
+    <div class="summary">
+      <div class="summary-row">
+        <span>Settlement reference</span>
+        <strong>{{ settlement.reference }}</strong>
+      </div>
+      <div class="summary-row">
+        <span>Status</span>
+        <strong>{{ settlement.get_status_display }}</strong>
+      </div>
+      <div class="summary-row">
+        <span>Total delivered orders</span>
+        <strong>&pound;{{ settlement.total_order_value }}</strong>
+      </div>
+      <div class="summary-row">
+        <span>Network commission (5%)</span>
+        <strong>&pound;{{ settlement.commission_amount }}</strong>
+      </div>
+      <div class="summary-row">
+        <span>Producer payment (95%)</span>
+        <strong>&pound;{{ settlement.producer_payment_amount }}</strong>
+      </div>
+      <div class="summary-row">
+        <span>Tax-year running total from {{ tax_year_start }}</span>
+        <strong>&pound;{{ tax_year_total }}</strong>
+      </div>
+    </div>
+
+    <div class="actions">
+      <a class="button" href="{% url 'settlement_report_csv' settlement.pk %}">Download CSV report</a>
+    </div>
+  </section>
+
+  <section style="margin-top: 24px;">
+    <div class="toolbar">
+      <h2>Order Breakdown</h2>
+    </div>
+    {% if orders %}
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Delivery date</th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Commission</th>
+            <th>Producer payment</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+            <tr>
+              <td>{{ order.order_number }}</td>
+              <td>Customer {{ order.customer_id }}</td>
+              <td>{{ order.delivery_date }}</td>
+              <td>
+                {% for item in order.items.all %}
+                  {{ item.quantity }} {{ item.unit }} {{ item.product_name }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+              </td>
+              <td>&pound;{{ order.subtotal }}</td>
+              <td>&pound;{{ order.commission_amount }}</td>
+              <td>&pound;{{ order.producer_payment_amount }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No delivered orders are included in this settlement week.</p>
+    {% endif %}
+  </section>
+
+  <section style="margin-top: 24px;">
+    <div class="toolbar">
+      <h2>Historical Settlements</h2>
+    </div>
+    {% if historical_settlements %}
+      <table>
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th>Reference</th>
+            <th>Status</th>
+            <th>Producer payment</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in historical_settlements %}
+            <tr>
+              <td>{{ item.week_start }} to {{ item.week_end }}</td>
+              <td>{{ item.reference }}</td>
+              <td>{{ item.get_status_display }}</td>
+              <td>&pound;{{ item.producer_payment_amount }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+{% endblock %}

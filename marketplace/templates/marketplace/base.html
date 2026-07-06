@@ -299,10 +299,12 @@
           {% if user.producer_profile %}
             <a href="{% url 'producer_dashboard' %}">Producer profile</a>
             <a href="{% url 'producer_orders' %}">Orders</a>
+            <a href="{% url 'producer_settlements' %}">Payments</a>
             <a href="{% url 'product_create' %}">Add product</a>
           {% endif %}
           {% if user.customer_profile %}
             <a href="{% url 'customer_account' %}">Customer account</a>
+            <a href="{% url 'order_history' %}">Order history</a>
             <a href="{% url 'cart_detail' %}">Cart ({{ cart_item_count }})</a>
           {% endif %}
           <form method="post" action="{% url 'logout' %}" style="display:inline;">

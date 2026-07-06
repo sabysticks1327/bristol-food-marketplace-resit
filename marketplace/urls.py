@@ -9,6 +9,9 @@ urlpatterns = [
     path("accounts/producer/register/", views.producer_register, name="producer_register"),
     path("accounts/customer/register/", views.customer_register, name="customer_register"),
     path("accounts/customer/", views.customer_account, name="customer_account"),
+    path("accounts/customer/orders/", views.order_history, name="order_history"),
+    path("accounts/customer/orders/<str:order_number>/reorder/", views.reorder, name="reorder"),
+    path("accounts/customer/orders/<str:order_number>/receipt.csv", views.order_receipt_csv, name="order_receipt_csv"),
     path(
         "login/",
         auth_views.LoginView.as_view(
@@ -30,6 +33,12 @@ urlpatterns = [
     path("checkout/", views.checkout, name="checkout"),
     path("orders/<str:order_number>/", views.order_detail, name="order_detail"),
     path("producer/orders/", views.producer_orders, name="producer_orders"),
+    path("producer/payments/", views.producer_settlements, name="producer_settlements"),
+    path(
+        "producer/payments/<int:settlement_id>/report.csv",
+        views.settlement_report_csv,
+        name="settlement_report_csv",
+    ),
     path(
         "producer/orders/<str:order_number>/status/",
         views.order_status_update,

@@ -1,6 +1,6 @@
 # Bristol Regional Food Network Marketplace - Resit Project
 
-This Django project currently implements **TC-001 to TC-007, TC-009 to TC-011, TC-015, and TC-022 only**.
+This Django project currently implements **TC-001 to TC-007, TC-009 to TC-012, TC-014, TC-015, TC-021, and TC-022 only**.
 
 ## Implemented Test Cases
 
@@ -16,7 +16,10 @@ This Django project currently implements **TC-001 to TC-007, TC-009 to TC-011, T
 | TC-009 | Producer Incoming Orders | Implemented |
 | TC-010 | Order Status Updates | Implemented |
 | TC-011 | Inventory Updates | Implemented |
+| TC-012 | Weekly Producer Payment Settlement Summary | Implemented |
+| TC-014 | Organic Certification Filter | Implemented |
 | TC-015 | Allergen Warnings | Implemented |
+| TC-021 | Order History and Reorder | Implemented |
 | TC-022 | Secure Authentication and Authorisation | Implemented |
 
 ## TC-001 Coverage
@@ -118,6 +121,28 @@ This Django project currently implements **TC-001 to TC-007, TC-009 to TC-011, T
 - Low-stock alerts are created and shown to producers.
 - Producers can only edit their own products.
 
+## TC-012 Coverage
+
+- Producer payment page builds weekly settlement summaries for the previous completed week or selected week.
+- Only delivered orders from that producer are included in the settlement.
+- Pending orders and other producers' orders are excluded.
+- Settlement totals show full order value, 5% network commission, and 95% producer payment.
+- Each settlement includes an itemised order breakdown.
+- Producers can download a CSV settlement report.
+- Settlement status is tracked as pending bank transfer or processed.
+- A tax-year running producer payment total is shown for delivered orders.
+- Settlement report access is restricted to the owning producer.
+
+## TC-014 Coverage
+
+- Product listings store organic certification status.
+- Producers can enter certification body and certificate number.
+- Certified organic products display badges on product cards.
+- Product detail pages show certification body and certificate number.
+- Marketplace filter supports certified organic products only.
+- Organic filtering combines with category filtering.
+- Producer form validation requires a certification body for certified organic listings.
+
 ## TC-015 Coverage
 
 - Allergen information is required when producers list or edit products.
@@ -127,6 +152,17 @@ This Django project currently implements **TC-001 to TC-007, TC-009 to TC-011, T
 - Product search includes allergen information.
 - Marketplace allergen filters support `Contains allergens` and `No common allergens`.
 - Customers must acknowledge allergen information before adding products to cart.
+
+## TC-021 Coverage
+
+- Customer order history page lists previous orders newest first.
+- Order history shows order number, order date, delivery date, producer, status, items, and total.
+- Customers can filter order history by producer and date range.
+- Order detail pages show masked payment references.
+- Customers can download CSV receipts.
+- Reorder buttons add available previous items back into the current cart.
+- Reorder checks current availability and stock before adding items.
+- Unavailable previous items are skipped and clearly flagged to the customer.
 
 ## TC-022 Coverage
 
@@ -189,4 +225,4 @@ python manage.py test
 ```
 
 The tests verify TC-001 and TC-002 registration, role/profile creation, password hashing, duplicate/invalid registration handling, login, and profile/account access.
-The tests also verify TC-003 to TC-007, TC-009 to TC-011, TC-015, and TC-022 product creation, producer-only access control, category browsing, visible product filtering, product detail display, search matching, cart updates, single-producer checkout, payment record creation, commission calculation, incoming order management, order status history, customer notifications, inventory update history, low-stock alerts, allergen warnings, allergen acknowledgement, login failure logging, rate limiting, logout, and protected-page checks.
+The tests also verify TC-003 to TC-007, TC-009 to TC-012, TC-014, TC-015, TC-021, and TC-022 product creation, producer-only access control, category browsing, visible product filtering, product detail display, search matching, cart updates, single-producer checkout, payment record creation, commission calculation, incoming order management, order status history, customer notifications, inventory update history, low-stock alerts, weekly payment settlement reports, organic certification filtering, allergen warnings, allergen acknowledgement, order history, reorder flow, login failure logging, rate limiting, logout, and protected-page checks.

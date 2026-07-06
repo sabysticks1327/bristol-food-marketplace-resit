@@ -162,6 +162,9 @@ class ProductForm(forms.ModelForm):
             "availability",
             "stock_quantity",
             "allergen_info",
+            "organic_certified",
+            "certification_body",
+            "certification_number",
             "harvest_date",
         ]
         widgets = {
@@ -173,6 +176,15 @@ class ProductForm(forms.ModelForm):
         if not allergen_info:
             raise forms.ValidationError("Allergen information is required.")
         return allergen_info
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get("organic_certified") and not cleaned_data.get("certification_body"):
+            self.add_error(
+                "certification_body",
+                "Certification body is required for certified organic products.",
+            )
+        return cleaned_data
 
 
 class CartItemForm(forms.Form):

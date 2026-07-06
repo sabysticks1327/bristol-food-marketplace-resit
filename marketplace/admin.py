@@ -15,6 +15,7 @@ from .models import (
     PaymentRecord,
     ProducerProfile,
     Product,
+    WeeklySettlement,
 )
 
 
@@ -32,3 +33,4 @@ admin.site.register(OrderStatusHistory)
 admin.site.register(CustomerNotification)
 admin.site.register(InventoryUpdate)
 admin.site.register(InventoryAlert)
+admin.site.register(WeeklySettlement)

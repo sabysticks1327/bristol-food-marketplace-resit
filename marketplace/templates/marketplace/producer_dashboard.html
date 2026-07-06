@@ -4,7 +4,10 @@
   <section class="panel">
     <div class="toolbar">
       <h1>Producer Profile</h1>
-      <a class="button" href="{% url 'product_create' %}">Add product</a>
+      <div>
+        <a class="button" href="{% url 'product_create' %}">Add product</a>
+        <a class="button secondary" href="{% url 'producer_settlements' %}">Payments</a>
+      </div>
     </div>
     <p>Your producer account is ready for marketplace access.</p>
     <dl>

@@ -20,6 +20,7 @@ from .models import (
     PaymentRecord,
     ProducerProfile,
     Product,
+    WeeklySettlement,
     quantize_money,
 )
 
@@ -255,6 +256,9 @@ class ProductMarketplaceTests(TestCase):
         price="2.50",
         unit="kg",
         allergen_info="No common allergens",
+        organic_certified=False,
+        certification_body="",
+        certification_number="",
     ):
         return Product.objects.create(
             producer=producer or self.producer,
@@ -266,6 +270,9 @@ class ProductMarketplaceTests(TestCase):
             availability=availability,
             stock_quantity=Decimal(stock_quantity),
             allergen_info=allergen_info,
+            organic_certified=organic_certified,
+            certification_body=certification_body,
+            certification_number=certification_number,
             harvest_date=date(2026, 7, 1),
         )
 
@@ -856,6 +863,233 @@ class ProductMarketplaceTests(TestCase):
         )
         self.assertEqual(invalid_response.status_code, 200)
         self.assertContains(invalid_response, "Ensure this value is greater than or equal to 0.00")
+
+    def test_tc012_weekly_settlement_includes_only_delivered_orders_and_csv_report(self):
+        carrots = self.make_product("Organic Carrots", self.vegetables, price="2.00")
+        tomatoes = self.make_product("Organic Tomatoes", self.vegetables, price="3.00")
+        milk = self.make_product(
+            "Fresh Milk",
+            self.dairy,
+            producer=self.hillside,
+            price="1.80",
+            unit="litre",
+        )
+        week_start = timezone.localdate() - timedelta(days=timezone.localdate().weekday() + 7)
+        delivered_one = self.make_order(
+            carrots,
+            quantity="3.00",
+            delivery_date=week_start + timedelta(days=1),
+            status=Order.STATUS_DELIVERED,
+        )
+        delivered_two = self.make_order(
+            tomatoes,
+            quantity="2.00",
+            delivery_date=week_start + timedelta(days=3),
+            status=Order.STATUS_DELIVERED,
+        )
+        pending_order = self.make_order(
+            carrots,
+            quantity="1.00",
+            delivery_date=week_start + timedelta(days=4),
+            status=Order.STATUS_PENDING,
+        )
+        other_producer_order = self.make_order(
+            milk,
+            quantity="5.00",
+            delivery_date=week_start + timedelta(days=2),
+            status=Order.STATUS_DELIVERED,
+        )
+
+        self.assertTrue(self.login_producer())
+        response = self.client.get(
+            reverse("producer_settlements"),
+            {"week_start": week_start.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        settlement = response.context["settlement"]
+        self.assertEqual(settlement.week_start, week_start)
+        self.assertEqual(settlement.week_end, week_start + timedelta(days=6))
+        self.assertEqual(settlement.total_order_value, Decimal("12.00"))
+        self.assertEqual(settlement.commission_amount, Decimal("0.60"))
+        self.assertEqual(settlement.producer_payment_amount, Decimal("11.40"))
+        self.assertContains(response, "Pending Bank Transfer")
+        self.assertContains(response, delivered_one.order_number)
+        self.assertContains(response, delivered_two.order_number)
+        self.assertNotContains(response, pending_order.order_number)
+        self.assertNotContains(response, other_producer_order.order_number)
+        self.assertTrue(
+            WeeklySettlement.objects.filter(
+                producer=self.producer,
+                week_start=week_start,
+                orders=delivered_one,
+            ).exists()
+        )
+
+        csv_response = self.client.get(
+            reverse("settlement_report_csv", kwargs={"settlement_id": settlement.pk})
+        )
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertEqual(csv_response["Content-Type"], "text/csv")
+        csv_body = csv_response.content.decode()
+        self.assertIn(delivered_one.order_number, csv_body)
+        self.assertIn("Network commission", csv_body)
+        self.assertIn("11.40", csv_body)
+
+        self.client.logout()
+        self.client.login(
+            username="tom.harris@hillsidedairy.co.uk",
+            password="StrongProducerPass!2026",
+        )
+        forbidden = self.client.get(
+            reverse("settlement_report_csv", kwargs={"settlement_id": settlement.pk})
+        )
+        self.assertEqual(forbidden.status_code, 404)
+
+    def test_tc014_organic_certification_filter_badges_and_producer_form(self):
+        organic_carrots = self.make_product(
+            "Organic Carrots",
+            self.vegetables,
+            organic_certified=True,
+            certification_body="Soil Association",
+            certification_number="SA-BVF-001",
+        )
+        self.make_product("Standard Carrots", self.vegetables)
+        self.make_product(
+            "Fresh Milk",
+            self.dairy,
+            producer=self.hillside,
+            organic_certified=True,
+            certification_body="Organic Farmers & Growers",
+            certification_number="OFG-HIL-010",
+        )
+
+        response = self.client.get(reverse("product_list"), {"organic": "certified"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Organic Carrots")
+        self.assertContains(response, "Fresh Milk")
+        self.assertContains(response, "Certified Organic")
+        self.assertNotContains(response, "Standard Carrots")
+
+        category_response = self.client.get(
+            reverse("product_list"),
+            {"category": self.vegetables.slug, "organic": "certified"},
+        )
+        self.assertContains(category_response, "Organic Carrots")
+        self.assertNotContains(category_response, "Fresh Milk")
+
+        detail = self.client.get(organic_carrots.get_absolute_url())
+        self.assertContains(detail, "Certified Organic - Soil Association")
+        self.assertContains(detail, "SA-BVF-001")
+
+        self.assertTrue(self.login_producer())
+        missing_certification_body = self.client.post(
+            reverse("product_create"),
+            {
+                "name": "Organic Mystery Box",
+                "category": str(self.vegetables.pk),
+                "description": "Certified box without body.",
+                "price": "10.00",
+                "unit": "box",
+                "availability": Product.AVAILABILITY_AVAILABLE,
+                "stock_quantity": "6.00",
+                "allergen_info": "No common allergens",
+                "organic_certified": "on",
+                "certification_body": "",
+                "certification_number": "CERT-001",
+                "harvest_date": "2026-07-01",
+            },
+        )
+        self.assertEqual(missing_certification_body.status_code, 200)
+        self.assertContains(
+            missing_certification_body,
+            "Certification body is required for certified organic products.",
+        )
+
+    def test_tc021_customer_order_history_reorder_and_receipt(self):
+        carrots = self.make_product(
+            "Organic Carrots",
+            self.vegetables,
+            price="2.00",
+            stock_quantity="20.00",
+        )
+        tomatoes = self.make_product(
+            "Organic Tomatoes",
+            self.vegetables,
+            price="3.00",
+            stock_quantity="10.00",
+        )
+        milk = self.make_product(
+            "Fresh Milk",
+            self.dairy,
+            producer=self.hillside,
+            price="1.80",
+            unit="litre",
+            availability=Product.AVAILABILITY_UNAVAILABLE,
+        )
+        older_order = self.make_order(
+            carrots,
+            quantity="2.00",
+            delivery_date=timezone.localdate() - timedelta(days=12),
+            status=Order.STATUS_DELIVERED,
+        )
+        middle_order = self.make_order(
+            tomatoes,
+            quantity="1.00",
+            delivery_date=timezone.localdate() - timedelta(days=8),
+            status=Order.STATUS_DELIVERED,
+        )
+        newest_order = self.make_order(
+            milk,
+            quantity="3.00",
+            delivery_date=timezone.localdate() - timedelta(days=5),
+            status=Order.STATUS_DELIVERED,
+        )
+
+        self.assertTrue(self.login_customer())
+        history = self.client.get(reverse("order_history"))
+
+        self.assertEqual(history.status_code, 200)
+        orders = list(history.context["orders"])
+        self.assertEqual(orders, [newest_order, middle_order, older_order])
+        self.assertContains(history, newest_order.order_number)
+        self.assertContains(history, "Fresh Milk")
+        self.assertContains(history, "Reorder")
+
+        producer_filtered = self.client.get(
+            reverse("order_history"),
+            {"producer": self.producer.pk},
+        )
+        self.assertContains(producer_filtered, older_order.order_number)
+        self.assertContains(producer_filtered, middle_order.order_number)
+        self.assertNotContains(producer_filtered, newest_order.order_number)
+
+        detail = self.client.get(middle_order.get_absolute_url())
+        self.assertContains(detail, "****")
+        self.assertContains(detail, "Download receipt")
+        self.assertContains(detail, "Reorder")
+
+        receipt = self.client.get(
+            reverse("order_receipt_csv", kwargs={"order_number": middle_order.order_number})
+        )
+        self.assertEqual(receipt.status_code, 200)
+        self.assertIn("Organic Tomatoes", receipt.content.decode())
+        self.assertIn("****", receipt.content.decode())
+
+        reorder_response = self.client.post(
+            reverse("reorder", kwargs={"order_number": older_order.order_number})
+        )
+        self.assertRedirects(reorder_response, reverse("cart_detail"))
+        cart = Cart.objects.get(customer=self.customer)
+        self.assertTrue(cart.items.filter(product=carrots, quantity=Decimal("2.00")).exists())
+
+        skipped_response = self.client.post(
+            reverse("reorder", kwargs={"order_number": newest_order.order_number}),
+            follow=True,
+        )
+        self.assertContains(skipped_response, "Unavailable products were skipped")
+        self.assertFalse(cart.items.filter(product=milk).exists())
 
     def test_tc015_allergen_warnings_search_filters_and_acknowledgement(self):
         cheese = self.make_product(

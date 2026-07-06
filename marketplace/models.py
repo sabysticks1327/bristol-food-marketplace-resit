@@ -122,6 +122,9 @@ class Product(models.Model):
         validators=[MinValueValidator(Decimal("0.00"))],
     )
     allergen_info = models.CharField(max_length=255, default="No common allergens")
+    organic_certified = models.BooleanField(default=False)
+    certification_body = models.CharField(max_length=120, blank=True)
+    certification_number = models.CharField(max_length=80, blank=True)
     harvest_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -155,6 +158,14 @@ class Product(models.Model):
         if self.has_common_allergens:
             return f"Contains: {self.allergen_info}"
         return "No common allergens"
+
+    @property
+    def organic_label(self):
+        if not self.organic_certified:
+            return "Not certified organic"
+        if self.certification_body:
+            return f"Certified Organic - {self.certification_body}"
+        return "Certified Organic"
 
 
 class Cart(models.Model):
@@ -454,3 +465,43 @@ class InventoryAlert(models.Model):
 
     def __str__(self):
         return self.message
+
+
+class WeeklySettlement(models.Model):
+    STATUS_PENDING = "pending_bank_transfer"
+    STATUS_PROCESSED = "processed"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending Bank Transfer"),
+        (STATUS_PROCESSED, "Processed"),
+    ]
+
+    producer = models.ForeignKey(
+        ProducerProfile,
+        on_delete=models.CASCADE,
+        related_name="weekly_settlements",
+    )
+    week_start = models.DateField()
+    week_end = models.DateField()
+    orders = models.ManyToManyField(Order, related_name="weekly_settlements", blank=True)
+    total_order_value = models.DecimalField(max_digits=10, decimal_places=2)
+    commission_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    producer_payment_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+    reference = models.CharField(max_length=40, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-week_start"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["producer", "week_start"],
+                name="unique_weekly_settlement_per_producer",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.producer.business_name} settlement {self.week_start}"

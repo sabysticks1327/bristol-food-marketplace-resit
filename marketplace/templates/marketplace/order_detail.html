@@ -10,7 +10,10 @@
         <p class="muted">{{ order.get_status_display }} | {{ order.created_at }}</p>
       </div>
       {% if user.customer_profile %}
-        <a href="{% url 'customer_account' %}">Back to account</a>
+        <div>
+          <a href="{% url 'customer_account' %}">Back to account</a>
+          <a href="{% url 'order_receipt_csv' order.order_number %}">Download receipt</a>
+        </div>
       {% elif user.producer_profile %}
         <a href="{% url 'producer_dashboard' %}">Back to dashboard</a>
       {% endif %}
@@ -80,9 +83,18 @@
       </div>
       <div class="summary-row">
         <span>Payment reference</span>
-        <strong>{{ order.payment_record.transaction_reference }}</strong>
+        <strong>****{{ order.payment_record.transaction_reference|slice:"-4:" }}</strong>
       </div>
     </div>
+
+    {% if user.customer_profile %}
+      <form method="post" action="{% url 'reorder' order.order_number %}">
+        {% csrf_token %}
+        <div class="actions">
+          <button type="submit">Reorder</button>
+        </div>
+      </form>
+    {% endif %}
 
     <h2>Status History</h2>
     <div class="timeline">

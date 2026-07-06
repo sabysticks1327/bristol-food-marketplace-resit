@@ -9,6 +9,9 @@
     <p>
       <span class="badge">{{ product.availability_label }}</span>
       <span class="badge">{{ product.stock_quantity }} {{ product.unit }} left</span>
+      {% if product.organic_certified %}
+        <span class="badge">Certified Organic</span>
+      {% endif %}
     </p>
     <p class="{% if product.has_common_allergens %}warning{% else %}muted{% endif %}">
       {{ product.allergen_badge_text }}

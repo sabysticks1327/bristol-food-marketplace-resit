@@ -1,0 +1,90 @@
+{% extends "marketplace/base.html" %}
+
+{% block title %}Order History | Bristol Food Marketplace{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h1>Order History</h1>
+        <p class="muted">Past purchases are shown newest first.</p>
+      </div>
+      <a href="{% url 'customer_account' %}">Back to account</a>
+    </div>
+
+    <form method="get" action="{% url 'order_history' %}">
+      <div class="grid">
+        <div>
+          <label for="id_producer">Producer</label>
+          <select id="id_producer" name="producer">
+            <option value="">All producers</option>
+            {% for producer in producers %}
+              <option value="{{ producer.pk }}"{% if producer_id == producer.pk|stringformat:"s" %} selected{% endif %}>{{ producer.business_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="id_date_from">From</label>
+          <input id="id_date_from" type="date" name="date_from" value="{{ date_from }}">
+        </div>
+        <div>
+          <label for="id_date_to">To</label>
+          <input id="id_date_to" type="date" name="date_to" value="{{ date_to }}">
+        </div>
+      </div>
+      <div class="actions">
+        <button type="submit">Filter orders</button>
+        <a class="button secondary" href="{% url 'order_history' %}">Clear</a>
+      </div>
+    </form>
+  </section>
+
+  <section style="margin-top: 24px;">
+    {% if orders %}
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Order date</th>
+            <th>Delivery date</th>
+            <th>Producer</th>
+            <th>Status</th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+            <tr>
+              <td>{{ order.order_number }}</td>
+              <td>{{ order.created_at|date:"Y-m-d" }}</td>
+              <td>{{ order.delivery_date }}</td>
+              <td>{{ order.producer.business_name }}</td>
+              <td>{{ order.get_status_display }}</td>
+              <td>
+                {% for item in order.items.all %}
+                  {{ item.quantity }} {{ item.unit }} {{ item.product_name }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+              </td>
+              <td>&pound;{{ order.subtotal }}</td>
+              <td>
+                <a href="{{ order.get_absolute_url }}">View</a>
+                <a href="{% url 'order_receipt_csv' order.order_number %}">Receipt</a>
+                <form method="post" action="{% url 'reorder' order.order_number %}" style="display:inline;">
+                  {% csrf_token %}
+                  <button class="link" type="submit">Reorder</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="panel">
+        <h2>No orders found</h2>
+        <p class="muted">Try a different date range or producer filter.</p>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,4 +1,5 @@
-from datetime import timedelta
+import csv
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -8,6 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -32,7 +34,9 @@ from .models import (
     OrderItem,
     OrderStatusHistory,
     PaymentRecord,
+    ProducerProfile,
     Product,
+    WeeklySettlement,
     quantize_money,
 )
 
@@ -212,6 +216,7 @@ def product_list(request):
     category_slug = request.GET.get("category")
     query = request.GET.get("q", "").strip()
     allergen_filter = request.GET.get("allergen", "").strip()
+    organic_filter = request.GET.get("organic", "").strip()
     products = visible_products().select_related("producer", "category")
     selected_category = None
 
@@ -232,6 +237,9 @@ def product_list(request):
     elif allergen_filter == "none":
         products = products.filter(allergen_info__iexact="No common allergens")
 
+    if organic_filter == "certified":
+        products = products.filter(organic_certified=True)
+
     return render(
         request,
         "marketplace/product_list.html",
@@ -241,6 +249,7 @@ def product_list(request):
             "query": query,
             "selected_category": selected_category,
             "allergen_filter": allergen_filter,
+            "organic_filter": organic_filter,
         },
     )
 
@@ -503,6 +512,239 @@ def order_detail(request, order_number):
         "marketplace/order_detail.html",
         {"order": order, "status_form": status_form},
     )
+
+
+def previous_completed_week(reference_date=None):
+    reference_date = reference_date or timezone.localdate()
+    current_week_start = reference_date - timedelta(days=reference_date.weekday())
+    week_end = current_week_start - timedelta(days=1)
+    week_start = week_end - timedelta(days=6)
+    return week_start, week_end
+
+
+def parse_week_start(value):
+    if not value:
+        return previous_completed_week()[0]
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return previous_completed_week()[0]
+
+
+def tax_year_start_for(end_date):
+    start = date(end_date.year, 4, 6)
+    if end_date < start:
+        return date(end_date.year - 1, 4, 6)
+    return start
+
+
+def build_weekly_settlement(producer, week_start):
+    week_end = week_start + timedelta(days=6)
+    orders = (
+        producer.orders.filter(
+            status=Order.STATUS_DELIVERED,
+            delivery_date__gte=week_start,
+            delivery_date__lte=week_end,
+        )
+        .select_related("customer")
+        .prefetch_related("items")
+        .order_by("delivery_date", "created_at")
+    )
+    total_order_value = quantize_money(sum((order.subtotal for order in orders), Decimal("0")))
+    commission_amount = quantize_money(sum((order.commission_amount for order in orders), Decimal("0")))
+    producer_payment_amount = quantize_money(
+        sum((order.producer_payment_amount for order in orders), Decimal("0"))
+    )
+    reference = f"SET-{producer.id}-{week_start:%Y%m%d}"
+    settlement, _ = WeeklySettlement.objects.update_or_create(
+        producer=producer,
+        week_start=week_start,
+        defaults={
+            "week_end": week_end,
+            "total_order_value": total_order_value,
+            "commission_amount": commission_amount,
+            "producer_payment_amount": producer_payment_amount,
+            "reference": reference,
+        },
+    )
+    settlement.orders.set(orders)
+    return settlement, orders
+
+
+@login_required
+def producer_settlements(request):
+    producer = require_producer(request.user)
+    week_start = parse_week_start(request.GET.get("week_start"))
+    settlement, orders = build_weekly_settlement(producer, week_start)
+    tax_year_start = tax_year_start_for(settlement.week_end)
+    tax_year_orders = producer.orders.filter(
+        status=Order.STATUS_DELIVERED,
+        delivery_date__gte=tax_year_start,
+        delivery_date__lte=settlement.week_end,
+    )
+    tax_year_total = quantize_money(
+        sum((order.producer_payment_amount for order in tax_year_orders), Decimal("0"))
+    )
+    historical_settlements = producer.weekly_settlements.order_by("-week_start")
+
+    return render(
+        request,
+        "marketplace/producer_settlements.html",
+        {
+            "settlement": settlement,
+            "orders": orders,
+            "tax_year_start": tax_year_start,
+            "tax_year_total": tax_year_total,
+            "historical_settlements": historical_settlements,
+        },
+    )
+
+
+@login_required
+def settlement_report_csv(request, settlement_id):
+    producer = require_producer(request.user)
+    settlement = get_object_or_404(WeeklySettlement, pk=settlement_id, producer=producer)
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = (
+        f'attachment; filename="settlement-{settlement.reference}.csv"'
+    )
+    writer = csv.writer(response)
+    writer.writerow(
+        [
+            "Settlement reference",
+            settlement.reference,
+            "Week",
+            f"{settlement.week_start} to {settlement.week_end}",
+            "Status",
+            settlement.get_status_display(),
+        ]
+    )
+    writer.writerow(
+        [
+            "Order number",
+            "Customer",
+            "Delivery date",
+            "Items",
+            "Order total",
+            "Network commission",
+            "Producer payment",
+        ]
+    )
+    for order in settlement.orders.select_related("customer").prefetch_related("items"):
+        items = "; ".join(
+            f"{item.quantity} {item.unit} {item.product_name}"
+            for item in order.items.all()
+        )
+        writer.writerow(
+            [
+                order.order_number,
+                f"Customer {order.customer_id}",
+                order.delivery_date,
+                items,
+                order.subtotal,
+                order.commission_amount,
+                order.producer_payment_amount,
+            ]
+        )
+    writer.writerow([])
+    writer.writerow(["Totals", "", "", "", settlement.total_order_value, settlement.commission_amount, settlement.producer_payment_amount])
+    return response
+
+
+@login_required
+def order_history(request):
+    customer = require_customer(request.user)
+    orders = customer.orders.select_related("producer").prefetch_related("items").order_by("-created_at")
+    producer_id = request.GET.get("producer")
+    date_from = request.GET.get("date_from")
+    date_to = request.GET.get("date_to")
+
+    if producer_id:
+        orders = orders.filter(producer_id=producer_id)
+    if date_from:
+        orders = orders.filter(created_at__date__gte=date_from)
+    if date_to:
+        orders = orders.filter(created_at__date__lte=date_to)
+
+    producers = ProducerProfile.objects.filter(orders__customer=customer).distinct()
+    return render(
+        request,
+        "marketplace/order_history.html",
+        {
+            "orders": orders,
+            "producers": producers,
+            "producer_id": producer_id,
+            "date_from": date_from,
+            "date_to": date_to,
+        },
+    )
+
+
+@login_required
+@require_POST
+def reorder(request, order_number):
+    customer = require_customer(request.user)
+    order = get_object_or_404(
+        Order.objects.prefetch_related("items", "items__product"),
+        order_number=order_number,
+        customer=customer,
+    )
+    cart = get_customer_cart(customer)
+    added = 0
+    skipped = []
+
+    for item in order.items.all():
+        product = item.product
+        if product is None or not product.is_customer_visible:
+            skipped.append(item.product_name)
+            continue
+        quantity = min(item.quantity, product.stock_quantity)
+        if quantity <= 0:
+            skipped.append(item.product_name)
+            continue
+        cart_item, created = CartItem.objects.get_or_create(
+            cart=cart,
+            product=product,
+            defaults={"quantity": quantity},
+        )
+        if not created:
+            cart_item.quantity = min(cart_item.quantity + quantity, product.stock_quantity)
+            cart_item.save()
+        added += 1
+
+    if added:
+        messages.success(request, f"{added} previous order item(s) added to your cart.")
+    if skipped:
+        messages.warning(
+            request,
+            "Unavailable products were skipped: " + ", ".join(skipped),
+        )
+    return redirect("cart_detail")
+
+
+@login_required
+def order_receipt_csv(request, order_number):
+    customer = require_customer(request.user)
+    order = get_object_or_404(
+        Order.objects.select_related("producer", "payment_record").prefetch_related("items"),
+        order_number=order_number,
+        customer=customer,
+    )
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="receipt-{order.order_number}.csv"'
+    writer = csv.writer(response)
+    writer.writerow(["Order", order.order_number])
+    writer.writerow(["Producer", order.producer.business_name])
+    writer.writerow(["Delivery date", order.delivery_date])
+    writer.writerow(["Status", order.get_status_display()])
+    writer.writerow(["Payment", f"{order.payment_record.provider} ****{order.payment_record.transaction_reference[-4:]}"])
+    writer.writerow([])
+    writer.writerow(["Product", "Quantity", "Unit price", "Line total"])
+    for item in order.items.all():
+        writer.writerow([item.product_name, f"{item.quantity} {item.unit}", item.unit_price, item.line_total])
+    writer.writerow([])
+    writer.writerow(["Total", order.subtotal])
+    return response
 
 
 @login_required

@@ -36,6 +36,11 @@
       <a class="filter-link{% if allergen_filter == 'contains' %} active{% endif %}" href="{% url 'product_list' %}?allergen=contains{% if selected_category %}&amp;category={{ selected_category.slug }}{% endif %}{% if query %}&amp;q={{ query|urlencode }}{% endif %}">Contains allergens</a>
       <a class="filter-link{% if allergen_filter == 'none' %} active{% endif %}" href="{% url 'product_list' %}?allergen=none{% if selected_category %}&amp;category={{ selected_category.slug }}{% endif %}{% if query %}&amp;q={{ query|urlencode }}{% endif %}">No common allergens</a>
     </div>
+
+    <div class="filters" aria-label="Organic certification filters">
+      <a class="filter-link{% if not organic_filter %} active{% endif %}" href="{% url 'product_list' %}{% if selected_category or query or allergen_filter %}?{% if selected_category %}category={{ selected_category.slug }}{% endif %}{% if selected_category and query %}&amp;{% endif %}{% if query %}q={{ query|urlencode }}{% endif %}{% if allergen_filter %}&amp;allergen={{ allergen_filter }}{% endif %}{% endif %}">All certification</a>
+      <a class="filter-link{% if organic_filter == 'certified' %} active{% endif %}" href="{% url 'product_list' %}?organic=certified{% if selected_category %}&amp;category={{ selected_category.slug }}{% endif %}{% if query %}&amp;q={{ query|urlencode }}{% endif %}{% if allergen_filter %}&amp;allergen={{ allergen_filter }}{% endif %}">Certified Organic</a>
+    </div>
   </section>
 
   <section style="margin-top: 24px;">
