@@ -6,6 +6,17 @@ from . import views
 
 urlpatterns = [
     path("", views.home, name="marketplace_home"),
+    path("api/", views.api_root, name="api_root"),
+    path("api/categories/", views.api_categories, name="api_categories"),
+    path("api/products/", views.api_products, name="api_products"),
+    path("api/products/<int:pk>/", views.api_product_detail, name="api_product_detail"),
+    path("api/customer/orders/", views.api_customer_orders, name="api_customer_orders"),
+    path("api/producer/orders/", views.api_producer_orders, name="api_producer_orders"),
+    path(
+        "api/producer/settlements/",
+        views.api_producer_settlements,
+        name="api_producer_settlements",
+    ),
     path("accounts/producer/register/", views.producer_register, name="producer_register"),
     path("accounts/customer/register/", views.customer_register, name="customer_register"),
     path("accounts/customer/", views.customer_account, name="customer_account"),

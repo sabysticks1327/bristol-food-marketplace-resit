@@ -1091,6 +1091,132 @@ class ProductMarketplaceTests(TestCase):
         self.assertContains(skipped_response, "Unavailable products were skipped")
         self.assertFalse(cart.items.filter(product=milk).exists())
 
+    def test_api_products_support_search_category_allergen_and_organic_filters(self):
+        carrots = self.make_product(
+            "Organic Carrots",
+            self.vegetables,
+            organic_certified=True,
+            certification_body="Soil Association",
+        )
+        self.make_product(
+            "Walnut Bread",
+            self.vegetables,
+            allergen_info="Wheat (Gluten), Nuts (Walnuts)",
+        )
+        self.make_product(
+            "Fresh Milk",
+            self.dairy,
+            producer=self.hillside,
+            allergen_info="Milk",
+        )
+
+        root_response = self.client.get(reverse("api_root"))
+        self.assertEqual(root_response.status_code, 200)
+        self.assertIn("products", root_response.json()["endpoints"])
+
+        response = self.client.get(
+            reverse("api_products"),
+            {"category": self.vegetables.slug, "organic": "certified"},
+        )
+        payload = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["products"][0]["name"], "Organic Carrots")
+        self.assertTrue(payload["products"][0]["organic_certified"])
+
+        detail = self.client.get(reverse("api_product_detail", kwargs={"pk": carrots.pk}))
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["product"]["certification_body"], "Soil Association")
+
+        allergen_response = self.client.get(
+            reverse("api_products"),
+            {"allergen": "contains", "q": "walnut"},
+        )
+        self.assertEqual(allergen_response.json()["count"], 1)
+        self.assertEqual(allergen_response.json()["products"][0]["name"], "Walnut Bread")
+
+    def test_api_order_endpoints_are_role_protected_and_return_owned_data(self):
+        carrots = self.make_product("Organic Carrots", self.vegetables, price="2.00")
+        milk = self.make_product(
+            "Fresh Milk",
+            self.dairy,
+            producer=self.hillside,
+            price="1.80",
+            unit="litre",
+        )
+        customer_order = self.make_order(
+            carrots,
+            quantity="2.00",
+            delivery_date=timezone.localdate() + timedelta(days=2),
+            status=Order.STATUS_CONFIRMED,
+        )
+        other_producer_order = self.make_order(
+            milk,
+            quantity="3.00",
+            delivery_date=timezone.localdate() + timedelta(days=3),
+            status=Order.STATUS_PENDING,
+        )
+
+        self.assertTrue(self.login_customer())
+        customer_orders = self.client.get(reverse("api_customer_orders"))
+        self.assertEqual(customer_orders.status_code, 200)
+        order_numbers = [
+            order["order_number"] for order in customer_orders.json()["orders"]
+        ]
+        self.assertIn(customer_order.order_number, order_numbers)
+        self.assertIn(other_producer_order.order_number, order_numbers)
+        self.assertTrue(customer_orders.json()["orders"][0]["payment_reference"].startswith("****"))
+
+        forbidden_producer_api = self.client.get(reverse("api_producer_orders"))
+        self.assertEqual(forbidden_producer_api.status_code, 403)
+
+        self.client.logout()
+        self.assertTrue(self.login_producer())
+        producer_orders = self.client.get(reverse("api_producer_orders"))
+        self.assertEqual(producer_orders.status_code, 200)
+        producer_order_numbers = [
+            order["order_number"] for order in producer_orders.json()["orders"]
+        ]
+        self.assertIn(customer_order.order_number, producer_order_numbers)
+        self.assertNotIn(other_producer_order.order_number, producer_order_numbers)
+
+        forbidden_customer_api = self.client.get(reverse("api_customer_orders"))
+        self.assertEqual(forbidden_customer_api.status_code, 403)
+
+    def test_api_producer_settlements_returns_weekly_commission_summary(self):
+        carrots = self.make_product("Organic Carrots", self.vegetables, price="2.00")
+        week_start = timezone.localdate() - timedelta(days=timezone.localdate().weekday() + 7)
+        delivered_order = self.make_order(
+            carrots,
+            quantity="5.00",
+            delivery_date=week_start + timedelta(days=1),
+            status=Order.STATUS_DELIVERED,
+        )
+        self.make_order(
+            carrots,
+            quantity="1.00",
+            delivery_date=week_start + timedelta(days=2),
+            status=Order.STATUS_PENDING,
+        )
+
+        self.assertTrue(self.login_producer())
+        response = self.client.get(
+            reverse("api_producer_settlements"),
+            {"week_start": week_start.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        settlement = response.json()["settlement"]
+        self.assertEqual(settlement["total_order_value"], "10.00")
+        self.assertEqual(settlement["commission_amount"], "0.50")
+        self.assertEqual(settlement["producer_payment_amount"], "9.50")
+        self.assertEqual(settlement["orders"][0]["order_number"], delivered_order.order_number)
+
+        self.client.logout()
+        self.assertTrue(self.login_customer())
+        forbidden = self.client.get(reverse("api_producer_settlements"))
+        self.assertEqual(forbidden.status_code, 403)
+
     def test_tc015_allergen_warnings_search_filters_and_acknowledgement(self):
         cheese = self.make_product(
             "Cheddar Cheese",

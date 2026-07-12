@@ -218,6 +218,23 @@ The Docker setup runs:
 - `web`: Django + Gunicorn
 - `db`: PostgreSQL
 
+## JSON API Endpoints
+
+The project includes lightweight JSON endpoints to demonstrate functional API access alongside the Django web interface:
+
+```text
+GET /api/
+GET /api/categories/
+GET /api/products/
+GET /api/products/?category=vegetables&organic=certified
+GET /api/products/<product_id>/
+GET /api/customer/orders/
+GET /api/producer/orders/
+GET /api/producer/settlements/
+```
+
+The public product endpoints support the same marketplace filters as the web interface. Customer and producer order APIs require login and return only the signed-in user's authorised data.
+
 ## Tests
 
 ```bash
@@ -225,4 +242,4 @@ python manage.py test
 ```
 
 The tests verify TC-001 and TC-002 registration, role/profile creation, password hashing, duplicate/invalid registration handling, login, and profile/account access.
-The tests also verify TC-003 to TC-007, TC-009 to TC-012, TC-014, TC-015, TC-021, and TC-022 product creation, producer-only access control, category browsing, visible product filtering, product detail display, search matching, cart updates, single-producer checkout, payment record creation, commission calculation, incoming order management, order status history, customer notifications, inventory update history, low-stock alerts, weekly payment settlement reports, organic certification filtering, allergen warnings, allergen acknowledgement, order history, reorder flow, login failure logging, rate limiting, logout, and protected-page checks.
+The tests also verify TC-003 to TC-007, TC-009 to TC-012, TC-014, TC-015, TC-021, and TC-022 product creation, producer-only access control, category browsing, visible product filtering, product detail display, search matching, cart updates, single-producer checkout, payment record creation, commission calculation, incoming order management, order status history, customer notifications, inventory update history, low-stock alerts, weekly payment settlement reports, organic certification filtering, allergen warnings, allergen acknowledgement, order history, reorder flow, API endpoint responses, login failure logging, rate limiting, logout, and protected-page checks.

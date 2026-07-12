@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -56,6 +56,80 @@ def visible_products():
         availability__in=[Product.AVAILABILITY_IN_SEASON, Product.AVAILABILITY_AVAILABLE],
         stock_quantity__gt=0,
     )
+
+
+def decimal_text(value):
+    return f"{value:.2f}"
+
+
+def date_text(value):
+    return value.isoformat() if value else None
+
+
+def api_error(message, status=400):
+    return JsonResponse({"error": message}, status=status)
+
+
+def product_payload(product):
+    return {
+        "id": product.id,
+        "name": product.name,
+        "category": product.category.name,
+        "producer": product.producer.business_name,
+        "description": product.description,
+        "price": decimal_text(product.price),
+        "unit": product.unit,
+        "availability": product.availability_label,
+        "stock_quantity": decimal_text(product.stock_quantity),
+        "allergen_info": product.allergen_info,
+        "organic_certified": product.organic_certified,
+        "organic_label": product.organic_label,
+        "certification_body": product.certification_body,
+        "certification_number": product.certification_number,
+        "harvest_date": date_text(product.harvest_date),
+        "detail_url": product.get_absolute_url(),
+    }
+
+
+def order_item_payload(item):
+    return {
+        "product_name": item.product_name,
+        "category": item.product_category,
+        "quantity": decimal_text(item.quantity),
+        "unit": item.unit,
+        "unit_price": decimal_text(item.unit_price),
+        "line_total": decimal_text(item.line_total),
+    }
+
+
+def order_payload(order):
+    payment = getattr(order, "payment_record", None)
+    return {
+        "order_number": order.order_number,
+        "producer": order.producer.business_name,
+        "customer": f"Customer {order.customer_id}",
+        "delivery_date": date_text(order.delivery_date),
+        "status": order.get_status_display(),
+        "subtotal": decimal_text(order.subtotal),
+        "commission_amount": decimal_text(order.commission_amount),
+        "producer_payment_amount": decimal_text(order.producer_payment_amount),
+        "payment_reference": f"****{payment.transaction_reference[-4:]}" if payment else None,
+        "items": [order_item_payload(item) for item in order.items.all()],
+    }
+
+
+def settlement_payload(settlement):
+    return {
+        "reference": settlement.reference,
+        "producer": settlement.producer.business_name,
+        "week_start": date_text(settlement.week_start),
+        "week_end": date_text(settlement.week_end),
+        "status": settlement.get_status_display(),
+        "total_order_value": decimal_text(settlement.total_order_value),
+        "commission_amount": decimal_text(settlement.commission_amount),
+        "producer_payment_amount": decimal_text(settlement.producer_payment_amount),
+        "orders": [order_payload(order) for order in settlement.orders.all()],
+    }
 
 
 def require_producer(user):
@@ -271,6 +345,84 @@ def product_detail(request, pk):
             ),
         },
     )
+
+
+def api_root(request):
+    return JsonResponse(
+        {
+            "service": "Bristol Food Marketplace API",
+            "endpoints": {
+                "categories": request.build_absolute_uri("/api/categories/"),
+                "products": request.build_absolute_uri("/api/products/"),
+                "customer_orders": request.build_absolute_uri("/api/customer/orders/"),
+                "producer_orders": request.build_absolute_uri("/api/producer/orders/"),
+                "producer_settlements": request.build_absolute_uri("/api/producer/settlements/"),
+            },
+        }
+    )
+
+
+def api_categories(request):
+    categories = Category.objects.all()
+    return JsonResponse(
+        {
+            "count": categories.count(),
+            "categories": [
+                {
+                    "id": category.id,
+                    "name": category.name,
+                    "slug": category.slug,
+                    "product_count": visible_products().filter(category=category).count(),
+                }
+                for category in categories
+            ],
+        }
+    )
+
+
+def api_products(request):
+    category_slug = request.GET.get("category")
+    query = request.GET.get("q", "").strip()
+    allergen_filter = request.GET.get("allergen", "").strip()
+    organic_filter = request.GET.get("organic", "").strip()
+    products = visible_products().select_related("producer", "category")
+
+    if category_slug:
+        products = products.filter(category__slug=category_slug)
+    if query:
+        products = products.filter(
+            Q(name__icontains=query)
+            | Q(description__icontains=query)
+            | Q(producer__business_name__icontains=query)
+            | Q(allergen_info__icontains=query)
+        )
+    if allergen_filter == "contains":
+        products = products.exclude(allergen_info__iexact="No common allergens")
+    elif allergen_filter == "none":
+        products = products.filter(allergen_info__iexact="No common allergens")
+    if organic_filter == "certified":
+        products = products.filter(organic_certified=True)
+
+    return JsonResponse(
+        {
+            "count": products.count(),
+            "filters": {
+                "category": category_slug,
+                "q": query,
+                "allergen": allergen_filter,
+                "organic": organic_filter,
+            },
+            "products": [product_payload(product) for product in products],
+        }
+    )
+
+
+def api_product_detail(request, pk):
+    product = get_object_or_404(
+        visible_products().select_related("producer", "category"),
+        pk=pk,
+    )
+    return JsonResponse({"product": product_payload(product)})
 
 
 def get_customer_cart(customer):
@@ -745,6 +897,66 @@ def order_receipt_csv(request, order_number):
     writer.writerow([])
     writer.writerow(["Total", order.subtotal])
     return response
+
+
+@login_required
+def api_customer_orders(request):
+    customer = getattr(request.user, "customer_profile", None)
+    if customer is None:
+        return api_error("Customer account required.", status=403)
+
+    orders = (
+        customer.orders.select_related("producer", "payment_record")
+        .prefetch_related("items")
+        .order_by("-created_at")
+    )
+    return JsonResponse(
+        {
+            "count": orders.count(),
+            "orders": [order_payload(order) for order in orders],
+        }
+    )
+
+
+@login_required
+def api_producer_orders(request):
+    producer = getattr(request.user, "producer_profile", None)
+    if producer is None:
+        return api_error("Producer account required.", status=403)
+
+    status = request.GET.get("status", "").strip()
+    orders = (
+        producer.orders.select_related("customer", "payment_record")
+        .prefetch_related("items")
+        .order_by("delivery_date", "created_at")
+    )
+    if status:
+        orders = orders.filter(status=status)
+
+    return JsonResponse(
+        {
+            "count": orders.count(),
+            "filters": {"status": status},
+            "orders": [order_payload(order) for order in orders],
+        }
+    )
+
+
+@login_required
+def api_producer_settlements(request):
+    producer = getattr(request.user, "producer_profile", None)
+    if producer is None:
+        return api_error("Producer account required.", status=403)
+
+    week_start = parse_week_start(request.GET.get("week_start"))
+    settlement, _ = build_weekly_settlement(producer, week_start)
+    settlement = (
+        WeeklySettlement.objects.filter(pk=settlement.pk)
+        .select_related("producer")
+        .prefetch_related("orders", "orders__items")
+        .get()
+    )
+    return JsonResponse({"settlement": settlement_payload(settlement)})
 
 
 @login_required
