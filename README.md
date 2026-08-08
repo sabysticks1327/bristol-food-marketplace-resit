@@ -1,4 +1,4 @@
-# Bristol Regional Food Network Marketplace - Resit Project
+# Bristol Regional Food Network Marketplace 
 
 This Django project currently implements **TC-001 to TC-007, TC-009 to TC-012, TC-014, TC-015, TC-021, and TC-022 only**.
 
